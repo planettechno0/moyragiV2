@@ -16,8 +16,16 @@
 
     <!-- Custom Styles -->
     <link rel="stylesheet" href="css/style.css">
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
 </head>
 <body>
+
+    <!-- Toasts Container -->
+    <div class="toast-container position-fixed bottom-0 start-0 p-3" style="z-index: 2000" id="toastContainer">
+        <!-- Toasts will be injected here -->
+    </div>
 
     <!-- Auth Container -->
     <div id="authContainer" class="d-none">
@@ -36,11 +44,7 @@
                     <span class="spinner-border spinner-border-sm d-none" id="loginLoading"></span>
                     <span id="loginBtnText">ورود</span>
                 </button>
-                <div class="text-center">
-                    <a href="#" class="text-decoration-none small" id="toggleAuthMode">حساب کاربری ندارید؟ ثبت نام</a>
-                </div>
                 <div id="loginError" class="text-danger mt-3 small text-center"></div>
-                <div id="loginSuccess" class="text-success mt-3 small text-center"></div>
             </form>
         </div>
     </div>
@@ -144,6 +148,14 @@
                             <span class="visually-hidden">Loading...</span>
                         </div>
                     </div>
+                </div>
+
+                <!-- Load More Button -->
+                <div class="text-center mt-4 d-none" id="loadMoreContainer">
+                    <button class="btn btn-outline-primary" id="loadMoreBtn">
+                        <span class="spinner-border spinner-border-sm d-none" id="loadMoreLoading"></span>
+                        نمایش بیشتر
+                    </button>
                 </div>
 
                 <!-- Empty State (Hidden by default) -->
@@ -445,5 +457,15 @@
     <!-- Main Module -->
     <script type="module" src="js/main.js"></script>
 
+    <!-- PWA Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker registered', reg))
+                    .catch(err => console.error('Service Worker registration failed', err));
+            });
+        }
+    </script>
 </body>
 </html>

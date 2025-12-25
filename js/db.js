@@ -38,8 +38,13 @@ export const db = {
     },
 
     // --- Stores ---
-    async getStores() {
+    async getStores(page = 0, pageSize = 20) {
         // Fetch stores with their orders
+        // Note: Pagination needs total count for perfect UI, but for Load More, we just need the next batch.
+        // Range is inclusive.
+        const from = page * pageSize;
+        const to = from + pageSize - 1;
+
         const { data, error } = await supabase
             .from('stores')
             .select(`
@@ -47,6 +52,7 @@ export const db = {
                 orders (*)
             `)
             .order('created_at', { ascending: false })
+            .range(from, to);
 
         if (error) throw error
 

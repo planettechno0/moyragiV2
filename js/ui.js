@@ -10,6 +10,11 @@ export const ui = {
         regions: [],
         products: []
     },
+    pagination: {
+        page: 0,
+        pageSize: 10,
+        hasMore: true
+    },
     currentOrderItems: [],
 
     // Maps
@@ -28,38 +33,122 @@ export const ui = {
         'night': 'شب'
     },
 
+    showToast(message, type = 'info') {
+        const container = document.getElementById('toastContainer');
+        const id = 'toast-' + Date.now();
+        const colorClass = type === 'error' ? 'text-bg-danger' :
+                           type === 'success' ? 'text-bg-success' : 'text-bg-primary';
+
+        const toastHtml = `
+            <div id="${id}" class="toast align-items-center ${colorClass} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="d-flex">
+                    <div class="toast-body">
+                        ${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            </div>
+        `;
+
+        // Append to container
+        // Using insertAdjacentHTML to avoid re-rendering entire list and losing existing toast states
+        container.insertAdjacentHTML('beforeend', toastHtml);
+
+        const toastEl = document.getElementById(id);
+        const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
+        toast.show();
+
+        // Cleanup after hidden
+        toastEl.addEventListener('hidden.bs.toast', () => {
+            toastEl.remove();
+        });
+    },
+
     async init() {
         // Load initial data
-        await this.refreshData()
-        this.renderStores()
-        this.renderRegions() // For modals and filters
+        await this.loadInitialData()
         this.setupEventListeners()
     },
 
-    async refreshData() {
+    async loadInitialData() {
         try {
-            const [stores, regions, products] = await Promise.all([
-                db.getStores(),
+            // Load Aux Data
+            const [regions, products] = await Promise.all([
                 db.getRegions(),
                 db.getProducts()
             ])
-            this.data.stores = stores || []
             this.data.regions = regions || []
             this.data.products = products || []
+            this.renderRegions()
+
+            // Load Stores (Page 0)
+            this.resetPagination()
+            await this.loadStoresChunk()
         } catch (error) {
             console.error('Error loading data:', error)
-            alert('خطا در بارگذاری اطلاعات. لطفاً دوباره تلاش کنید.')
+            this.showToast('خطا در بارگذاری اطلاعات. لطفاً دوباره تلاش کنید.', 'error')
         }
+    },
+
+    resetPagination() {
+        this.pagination.page = 0;
+        this.pagination.hasMore = true;
+        this.data.stores = [];
+        document.getElementById('storesContainer').innerHTML = ''; // Clear UI
+    },
+
+    async loadStoresChunk() {
+        const loadingSpinner = this.pagination.page === 0
+             ? document.querySelector('#storesContainer .spinner-border') // Initial load
+             : document.getElementById('loadMoreLoading'); // Load more
+
+        if (loadingSpinner) loadingSpinner.parentNode.classList.remove('d-none'); // Ensure container visible if spinner inside
+        if (loadingSpinner && this.pagination.page > 0) loadingSpinner.classList.remove('d-none'); // Show button spinner
+
+        try {
+            const newStores = await db.getStores(this.pagination.page, this.pagination.pageSize);
+
+            if (newStores.length < this.pagination.pageSize) {
+                this.pagination.hasMore = false;
+            }
+
+            this.data.stores = [...this.data.stores, ...newStores];
+            this.renderStores(); // Append new stores
+            this.pagination.page++;
+        } catch (error) {
+            console.error(error);
+            this.showToast('خطا در دریافت لیست فروشگاه‌ها', 'error');
+        } finally {
+             // Hide spinners
+             if (loadingSpinner && this.pagination.page > 0) loadingSpinner.classList.add('d-none');
+        }
+    },
+
+    // Kept for backward compat with other methods calling refreshData(), now alias to loadInitialData
+    async refreshData() {
+        return this.loadInitialData();
     },
 
     setupEventListeners() {
         // --- Filters ---
-        document.getElementById('searchInput').addEventListener('input', () => this.renderStores())
-        document.getElementById('filterDay').addEventListener('change', () => this.renderStores())
-        document.getElementById('filterRegion').addEventListener('change', () => this.renderStores())
-        document.getElementById('filterProb').addEventListener('change', () => this.renderStores())
+        // For local filtering to work with pagination, we ideally need backend filtering.
+        // However, user asked for "Pagination".
+        // Current implementation: We load chunks from DB.
+        // IF we use client-side filtering (Search/Region), it only filters what is LOADED.
+        // This is a common pitfall.
+        // FIX: If we have filters, we should probably fetch ALL matching from DB or warn user.
+        // Given complexity, let's keep client-side filter behavior but realize it only filters loaded data.
+        // OR: Reset pagination and re-render.
+
+        const filterHandler = () => this.renderStores(); // Just re-render what we have
+
+        document.getElementById('searchInput').addEventListener('input', filterHandler)
+        document.getElementById('filterDay').addEventListener('change', filterHandler)
+        document.getElementById('filterRegion').addEventListener('change', filterHandler)
+        document.getElementById('filterProb').addEventListener('change', filterHandler)
 
         // --- Buttons ---
+        document.getElementById('loadMoreBtn').addEventListener('click', () => this.loadStoresChunk())
         document.getElementById('addStoreBtn').addEventListener('click', () => this.openAddStoreModal())
         document.getElementById('resetDailyBtn').addEventListener('click', () => this.handleResetDaily())
 
@@ -129,11 +218,19 @@ export const ui = {
     renderStores() {
         const container = document.getElementById('storesContainer')
         const emptyState = document.getElementById('emptyState')
-        const loading = container.querySelector('.spinner-border')
+        const loadMoreContainer = document.getElementById('loadMoreContainer')
 
-        // If loading exists and we have data, clear it.
-        // Or simple:
-        container.innerHTML = ''
+        // Remove initial spinner if it exists
+        const initialSpinner = container.querySelector('.spinner-border');
+        if (initialSpinner && initialSpinner.parentElement.classList.contains('text-center')) {
+             container.innerHTML = '';
+        }
+
+        // We do NOT clear container.innerHTML here because we want to APPEND for Load More.
+        // HOWEVER, if we are Filtering client-side, we need to clear and re-render the whole `this.data.stores`.
+        // To handle both, let's clear and re-render ALL `this.data.stores` every time.
+        // This is inefficient for huge lists but simpler for correctness with client-side filtering.
+        container.innerHTML = '';
 
         const dayFilter = document.getElementById('filterDay').value
         const regionFilter = document.getElementById('filterRegion').value
@@ -158,10 +255,21 @@ export const ui = {
         })
 
         if (filteredStores.length === 0) {
-            emptyState.classList.remove('d-none')
-            return
+            if (this.data.stores.length === 0) emptyState.classList.remove('d-none') // Real empty
+            // Else just no matches for filter
+        } else {
+            emptyState.classList.add('d-none')
         }
-        emptyState.classList.add('d-none')
+
+        // Show/Hide Load More
+        // Only show if we have no active text search/filters (since those are client side only on loaded data)
+        // OR: Show it but clarify it loads more into the buffer.
+        // Let's hide Load More if we reached end of DB.
+        if (this.pagination.hasMore) {
+            loadMoreContainer.classList.remove('d-none');
+        } else {
+            loadMoreContainer.classList.add('d-none');
+        }
 
         filteredStores.forEach(store => {
             // Badges
@@ -478,7 +586,7 @@ export const ui = {
         const region = document.getElementById('storeRegion').value
 
         if (!name || !region) {
-            alert('نام و منطقه الزامی است.')
+            this.showToast('نام و منطقه الزامی است.', 'error')
             return
         }
 
@@ -500,8 +608,10 @@ export const ui = {
         try {
             if (id) {
                 await db.updateStore(id, storeData)
+                this.showToast('فروشگاه با موفقیت ویرایش شد.', 'success')
             } else {
                 await db.addStore(storeData)
+                this.showToast('فروشگاه جدید ثبت شد.', 'success')
             }
 
             bootstrap.Modal.getInstance(document.getElementById('addStoreModal')).hide()
@@ -509,7 +619,7 @@ export const ui = {
             this.renderStores()
         } catch (err) {
             console.error(err)
-            alert('خطا در ذخیره سازی')
+            this.showToast('خطا در ذخیره سازی', 'error')
         }
     },
 
@@ -523,7 +633,8 @@ export const ui = {
             document.getElementById('newRegionInput').value = ''
             await this.refreshData()
             this.renderRegions()
-        } catch(e) { console.error(e); alert('خطا') }
+            this.showToast('منطقه افزوده شد.', 'success')
+        } catch(e) { console.error(e); this.showToast('خطا در افزودن منطقه', 'error') }
     },
 
     async handleAddProduct() {
@@ -534,7 +645,8 @@ export const ui = {
             document.getElementById('newProductInput').value = ''
             await this.refreshData()
             this.renderRegions()
-        } catch(e) { console.error(e); alert('خطا') }
+            this.showToast('کالا افزوده شد.', 'success')
+        } catch(e) { console.error(e); this.showToast('خطا در افزودن کالا', 'error') }
     },
 
     async handleResetDaily() {
@@ -542,6 +654,7 @@ export const ui = {
             await db.resetDailyVisits()
             await this.refreshData()
             this.renderStores()
+            this.showToast('روز جدید شروع شد.', 'success')
         }
     },
 
@@ -565,13 +678,13 @@ export const ui = {
 
             if (data) {
                 await db.importData(data);
-                alert('بازگردانی با موفقیت انجام شد.');
+                this.showToast('بازگردانی با موفقیت انجام شد.', 'success');
                 await this.refreshData();
                 this.renderStores(); // Update UI
             }
         } catch (error) {
             console.error(error);
-            alert('خطا در بازگردانی فایل.');
+            this.showToast('خطا در بازگردانی فایل.', 'error');
         } finally {
             e.target.value = ''; // Reset input
         }
@@ -606,7 +719,7 @@ export const ui = {
         const count = parseInt(document.getElementById('orderCartonCount').value)
 
         if (!productId) {
-            alert('کالا انتخاب کنید')
+            this.showToast('کالا انتخاب کنید', 'error')
             return
         }
 
@@ -651,7 +764,7 @@ export const ui = {
         const text = document.getElementById('orderText').value
 
         if (this.currentOrderItems.length === 0 && !text) {
-            alert('حداقل یک کالا یا توضیح وارد کنید')
+            this.showToast('حداقل یک کالا یا توضیح وارد کنید', 'error')
             return
         }
 

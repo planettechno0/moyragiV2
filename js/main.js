@@ -2,32 +2,6 @@ import { auth } from './auth.js'
 import { ui } from './ui.js'
 
 document.addEventListener('DOMContentLoaded', async () => {
-    let isLoginMode = true;
-
-    // Toggle Auth Mode
-    document.getElementById('toggleAuthMode').addEventListener('click', (e) => {
-        e.preventDefault();
-        isLoginMode = !isLoginMode;
-
-        const title = document.getElementById('authTitle');
-        const btnText = document.getElementById('loginBtnText');
-        const toggleLink = document.getElementById('toggleAuthMode');
-        const errorMsg = document.getElementById('loginError');
-        const successMsg = document.getElementById('loginSuccess');
-
-        errorMsg.textContent = '';
-        successMsg.textContent = '';
-
-        if (isLoginMode) {
-            title.textContent = 'ورود به سامانه';
-            btnText.textContent = 'ورود';
-            toggleLink.textContent = 'حساب کاربری ندارید؟ ثبت نام';
-        } else {
-            title.textContent = 'ثبت نام در سامانه';
-            btnText.textContent = 'ثبت نام';
-            toggleLink.textContent = 'قبلا ثبت نام کرده‌اید؟ ورود';
-        }
-    });
 
     // Auth Event Listeners
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
@@ -37,31 +11,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         const btn = document.getElementById('loginBtn')
         const loading = document.getElementById('loginLoading')
         const errorMsg = document.getElementById('loginError')
-        const successMsg = document.getElementById('loginSuccess')
 
         btn.disabled = true
         loading.classList.remove('d-none')
         errorMsg.textContent = ''
-        successMsg.textContent = ''
 
         try {
-            if (isLoginMode) {
-                await auth.login(email, password)
-                // UI update handled by auth listener
-            } else {
-                await auth.signup(email, password)
-                successMsg.textContent = 'ثبت نام موفقیت‌آمیز بود. لطفاً برای تایید ایمیل خود را چک کنید (یا وارد شوید).'
-                // Ideally, auto-login or switch back to login mode?
-                // Supabase typically auto-logs in if email confirmation is disabled,
-                // or requires confirmation. We'll show message.
-
-                // If Supabase is set to auto-confirm (dev mode), auth listener will catch session change.
-            }
+            await auth.login(email, password)
+            // UI update handled by auth listener
         } catch (error) {
             console.error(error)
-            errorMsg.textContent = isLoginMode
-                ? 'ورود ناموفق. لطفاً ایمیل و رمز عبور را بررسی کنید.'
-                : 'ثبت نام ناموفق. لطفاً دوباره تلاش کنید.'
+            errorMsg.textContent = 'ورود ناموفق. لطفاً ایمیل و رمز عبور را بررسی کنید.'
         } finally {
             btn.disabled = false
             loading.classList.add('d-none')
