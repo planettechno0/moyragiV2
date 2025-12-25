@@ -1,5 +1,5 @@
-import { auth } from './auth'
-import { ui } from './ui'
+import { auth } from './auth.js'
+import { ui } from './ui.js'
 
 document.addEventListener('DOMContentLoaded', async () => {
 

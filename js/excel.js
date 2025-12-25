@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+import * as XLSX from 'https://cdn.sheetjs.com/xlsx-latest/package/xlsx.mjs';
 
 export const exportToExcel = (stores) => {
     // Flatten data for export

@@ -1,6 +1,6 @@
-import { db } from './db'
-import { auth } from './auth'
-import { exportToExcel } from './excel'
+import { db } from './db.js'
+import { auth } from './auth.js'
+import { exportToExcel } from './excel.js'
 
 export const ui = {
     // State
