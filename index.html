@@ -245,10 +245,35 @@
                         <hr>
 
                         <h6 class="fw-bold mb-3">پشتیبان‌گیری و خروجی</h6>
-                        <div class="d-flex gap-2">
-                            <button class="btn btn-outline-success w-100" id="exportExcelBtn">
-                                <i class="bi bi-file-earmark-excel"></i> خروجی اکسل
+                        <div class="d-flex gap-2 mb-2">
+                            <button class="btn btn-outline-success w-100" id="exportReportBtn">
+                                <i class="bi bi-file-text"></i> گزارش اکسل
                             </button>
+                        </div>
+
+                        <hr>
+                        <h6 class="fw-bold mb-2 small text-muted">مدیریت فایل‌های پشتیبان</h6>
+
+                        <!-- JSON Actions -->
+                        <div class="d-flex gap-2 mb-2">
+                            <button class="btn btn-outline-primary w-50" id="backupJsonBtn">
+                                <i class="bi bi-download"></i> دانلود JSON
+                            </button>
+                            <button class="btn btn-outline-warning w-50" onclick="document.getElementById('importJsonInput').click()">
+                                <i class="bi bi-upload"></i> بازگردانی JSON
+                            </button>
+                            <input type="file" id="importJsonInput" accept=".json" class="d-none">
+                        </div>
+
+                        <!-- Excel Backup Actions -->
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-outline-success w-50" id="backupExcelBtn">
+                                <i class="bi bi-download"></i> دانلود اکسل
+                            </button>
+                            <button class="btn btn-outline-warning w-50" onclick="document.getElementById('importExcelInput').click()">
+                                <i class="bi bi-upload"></i> بازگردانی اکسل
+                            </button>
+                            <input type="file" id="importExcelInput" accept=".xlsx, .xls" class="d-none">
                         </div>
                     </div>
                 </div>

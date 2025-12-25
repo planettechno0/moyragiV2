@@ -135,5 +135,62 @@ export const db = {
     async deleteOrder(orderId) {
         const { error } = await supabase.from('orders').delete().eq('id', orderId)
         if (error) throw error
+    },
+
+    // --- Import / Restore ---
+
+    async importData(data) {
+        // Data contains { regions, products, stores, orders }
+        // We use 'upsert' to insert or update based on ID.
+
+        // 1. Regions
+        if (data.regions && data.regions.length > 0) {
+            const { error } = await supabase.from('regions').upsert(data.regions, { onConflict: 'id' });
+            if (error) console.error('Error importing regions:', error);
+        }
+
+        // 2. Products
+        if (data.products && data.products.length > 0) {
+            const { error } = await supabase.from('products').upsert(data.products, { onConflict: 'id' });
+            if (error) console.error('Error importing products:', error);
+        }
+
+        // 3. Stores
+        // We must remove fields that are not columns if any (like 'orders' if not cleaned)
+        if (data.stores && data.stores.length > 0) {
+            const storesToInsert = data.stores.map(s => {
+                // Ensure only valid columns
+                return {
+                    id: s.id,
+                    name: s.name,
+                    description: s.description,
+                    seller_name: s.seller_name || s.sellerName, // Handle camelCase legacy
+                    address: s.address,
+                    phone: s.phone,
+                    region: s.region,
+                    ideal_time: s.ideal_time || s.idealTime,
+                    purchase_prob: s.purchase_prob || s.purchaseProb,
+                    visit_days: s.visit_days || s.visitDays,
+                    visited: !!s.visited
+                };
+            });
+            const { error } = await supabase.from('stores').upsert(storesToInsert, { onConflict: 'id' });
+            if (error) console.error('Error importing stores:', error);
+        }
+
+        // 4. Orders
+        if (data.orders && data.orders.length > 0) {
+             const ordersToInsert = data.orders.map(o => {
+                return {
+                    id: o.id,
+                    store_id: o.store_id || o.storeId, // Legacy mapping
+                    date: o.date,
+                    text: o.text,
+                    items: o.items // JSONB
+                };
+            });
+            const { error } = await supabase.from('orders').upsert(ordersToInsert, { onConflict: 'id' });
+            if (error) console.error('Error importing orders:', error);
+        }
     }
 }

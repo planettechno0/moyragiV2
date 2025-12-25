@@ -1,6 +1,7 @@
 import { db } from './db.js'
 import { auth } from './auth.js'
-import { exportToExcel } from './excel.js'
+import { exportToExcel, backupToExcel, parseExcelBackup } from './excel.js'
+import { backupToJSON, parseJSONBackup } from './backup.js'
 
 export const ui = {
     // State
@@ -68,7 +69,17 @@ export const ui = {
         // --- Settings ---
         document.getElementById('addRegionBtn').addEventListener('click', () => this.handleAddRegion())
         document.getElementById('addProductBtn').addEventListener('click', () => this.handleAddProduct())
-        document.getElementById('exportExcelBtn').addEventListener('click', () => exportToExcel(this.data.stores))
+
+        // Reports
+        document.getElementById('exportReportBtn').addEventListener('click', () => exportToExcel(this.data.stores))
+
+        // Backups - JSON
+        document.getElementById('backupJsonBtn').addEventListener('click', () => backupToJSON(this.data))
+        document.getElementById('importJsonInput').addEventListener('change', (e) => this.handleImport(e, 'json'))
+
+        // Backups - Excel
+        document.getElementById('backupExcelBtn').addEventListener('click', () => backupToExcel(this.data))
+        document.getElementById('importExcelInput').addEventListener('change', (e) => this.handleImport(e, 'excel'))
 
         // --- Orders ---
         document.getElementById('addOrderItemBtn').addEventListener('click', () => this.addOrderItem())
@@ -531,6 +542,38 @@ export const ui = {
             await db.resetDailyVisits()
             await this.refreshData()
             this.renderStores()
+        }
+    },
+
+    // --- Import Logic ---
+    async handleImport(e, type) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (!confirm('آیا مطمئن هستید؟ داده‌های وارد شده اضافه/بروزرسانی خواهند شد.')) {
+            e.target.value = '';
+            return;
+        }
+
+        try {
+            let data;
+            if (type === 'json') {
+                data = await parseJSONBackup(file);
+            } else if (type === 'excel') {
+                data = await parseExcelBackup(file);
+            }
+
+            if (data) {
+                await db.importData(data);
+                alert('بازگردانی با موفقیت انجام شد.');
+                await this.refreshData();
+                this.renderStores(); // Update UI
+            }
+        } catch (error) {
+            console.error(error);
+            alert('خطا در بازگردانی فایل.');
+        } finally {
+            e.target.value = ''; // Reset input
         }
     },
 

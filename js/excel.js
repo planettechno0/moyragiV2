@@ -57,3 +57,114 @@ export const exportToExcel = (stores) => {
 
     XLSX.writeFile(workbook, `Moyragi_Report_${new Date().toISOString().slice(0,10)}.xlsx`);
 };
+
+// --- Full Backup & Restore ---
+
+export const backupToExcel = (data) => {
+    const workbook = XLSX.utils.book_new();
+
+    // 1. Regions
+    if (data.regions && data.regions.length) {
+        const wsRegions = XLSX.utils.json_to_sheet(data.regions);
+        XLSX.utils.book_append_sheet(workbook, wsRegions, "Regions");
+    }
+
+    // 2. Products
+    if (data.products && data.products.length) {
+        const wsProducts = XLSX.utils.json_to_sheet(data.products);
+        XLSX.utils.book_append_sheet(workbook, wsProducts, "Products");
+    }
+
+    // 3. Stores
+    if (data.stores && data.stores.length) {
+        // We need to strip 'orders' from stores for the sheet, or keep it flat.
+        // For backup/restore DB style, strict separation is better.
+        const storesClean = data.stores.map(s => {
+            const { orders, ...rest } = s; // Exclude orders array from store sheet
+            // Convert array visit_days to string for CSV/Excel safety if needed, but XLSX handles arrays okay usually?
+            // Actually, for restore, simpler to JSON stringify arrays or keep as is if library supports it.
+            // Let's JSON stringify visit_days to be safe.
+            return {
+                ...rest,
+                visit_days: JSON.stringify(rest.visit_days)
+            };
+        });
+        const wsStores = XLSX.utils.json_to_sheet(storesClean);
+        XLSX.utils.book_append_sheet(workbook, wsStores, "Stores");
+    }
+
+    // 4. Orders
+    // Extract all orders
+    let allOrders = [];
+    if (data.stores) {
+        data.stores.forEach(store => {
+            if (store.orders) {
+                store.orders.forEach(order => {
+                    // Flatten items to JSON string
+                    allOrders.push({
+                        ...order,
+                        items: JSON.stringify(order.items)
+                    });
+                });
+            }
+        });
+    }
+    if (allOrders.length) {
+        const wsOrders = XLSX.utils.json_to_sheet(allOrders);
+        XLSX.utils.book_append_sheet(workbook, wsOrders, "Orders");
+    }
+
+    XLSX.writeFile(workbook, `Moyragi_Backup_${new Date().toISOString().slice(0,10)}.xlsx`);
+};
+
+export const parseExcelBackup = (file) => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+
+                const result = {
+                    regions: [],
+                    products: [],
+                    stores: [],
+                    orders: []
+                };
+
+                // Regions
+                if (workbook.Sheets["Regions"]) {
+                    result.regions = XLSX.utils.sheet_to_json(workbook.Sheets["Regions"]);
+                }
+
+                // Products
+                if (workbook.Sheets["Products"]) {
+                    result.products = XLSX.utils.sheet_to_json(workbook.Sheets["Products"]);
+                }
+
+                // Stores
+                if (workbook.Sheets["Stores"]) {
+                    const rawStores = XLSX.utils.sheet_to_json(workbook.Sheets["Stores"]);
+                    result.stores = rawStores.map(s => ({
+                        ...s,
+                        visit_days: s.visit_days ? JSON.parse(s.visit_days) : []
+                    }));
+                }
+
+                // Orders
+                if (workbook.Sheets["Orders"]) {
+                    const rawOrders = XLSX.utils.sheet_to_json(workbook.Sheets["Orders"]);
+                    result.orders = rawOrders.map(o => ({
+                        ...o,
+                        items: o.items ? JSON.parse(o.items) : []
+                    }));
+                }
+
+                resolve(result);
+            } catch (err) {
+                reject(err);
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    });
+};
