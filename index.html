@@ -22,7 +22,7 @@
     <!-- Auth Container -->
     <div id="authContainer" class="d-none">
         <div class="login-container">
-            <h4 class="text-center mb-4">ورود به سامانه</h4>
+            <h4 class="text-center mb-4" id="authTitle">ورود به سامانه</h4>
             <form id="loginForm">
                 <div class="mb-3">
                     <label class="form-label">ایمیل</label>
@@ -32,11 +32,15 @@
                     <label class="form-label">رمز عبور</label>
                     <input type="password" class="form-control" id="password" required>
                 </div>
-                <button type="submit" class="btn btn-primary w-100" id="loginBtn">
+                <button type="submit" class="btn btn-primary w-100 mb-3" id="loginBtn">
                     <span class="spinner-border spinner-border-sm d-none" id="loginLoading"></span>
-                    ورود
+                    <span id="loginBtnText">ورود</span>
                 </button>
+                <div class="text-center">
+                    <a href="#" class="text-decoration-none small" id="toggleAuthMode">حساب کاربری ندارید؟ ثبت نام</a>
+                </div>
                 <div id="loginError" class="text-danger mt-3 small text-center"></div>
+                <div id="loginSuccess" class="text-success mt-3 small text-center"></div>
             </form>
         </div>
     </div>
