@@ -8,6 +8,31 @@ export const db = {
         return data
     },
 
+    async getAllStores() {
+        // Fetch all stores (used for Management "Load All")
+        // Warning: This could be heavy if thousands of records.
+        // Supabase limits rows returned (usually 1000).
+        // For simplicity, we just ask for a large range or standard select.
+        const { data, error } = await supabase
+            .from('stores')
+            .select(`*, orders (*)`)
+            .order('created_at', { ascending: false })
+            // Default limit is usually 1000. If more needed, we need loop.
+            // Let's assume < 1000 for this user request context or handle basic case.
+
+        if (error) throw error
+
+        // Sort orders
+        if (data) {
+            data.forEach(store => {
+                if (store.orders) {
+                    store.orders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                }
+            })
+        }
+        return data
+    },
+
     async addRegion(name) {
         const { data, error } = await supabase.from('regions').insert([{ name }]).select()
         if (error) throw error

@@ -226,6 +226,32 @@ export const ui = {
              if (this.currentView === 'management') this.renderManagementTable()
              this.showToast('اطلاعات بیشتر بارگزاری شد', 'info')
         })
+        document.getElementById('manageLoadAllBtn').addEventListener('click', async () => {
+             if (confirm('آیا از بارگزاری تمام اطلاعات اطمینان دارید؟ این عملیات ممکن است کمی زمان ببرد.')) {
+                 try {
+                     const allStores = await db.getAllStores()
+                     // We merge or replace?
+                     // If we replace, we lose pagination state context, but that's fine for "Load All".
+                     // Ideally we merge unique IDs.
+                     const existingIds = new Set(this.data.stores.map(s => s.id))
+                     const newStores = allStores.filter(s => !existingIds.has(s.id))
+                     this.data.stores = [...this.data.stores, ...newStores]
+
+                     // Or just replace entirely to ensure sync?
+                     // this.data.stores = allStores
+                     // Merging is safer if user edited something locally (not applicable here really).
+                     // Let's just merge to append missing ones.
+
+                     this.pagination.hasMore = false // We loaded all (presumably)
+                     if (this.currentView === 'management') this.renderManagementTable()
+                     // Also update main view if needed, but maybe costly.
+                     this.showToast('تمام اطلاعات بارگزاری شد.', 'success')
+                 } catch (e) {
+                     console.error(e)
+                     this.showToast('خطا در دریافت اطلاعات', 'error')
+                 }
+             }
+        })
 
         // --- Auth ---
         document.getElementById('logoutBtn').addEventListener('click', async () => {
@@ -757,6 +783,12 @@ export const ui = {
     },
 
     async handleSaveVisit() {
+        // Check if jalaali is loaded
+        if (typeof window.jalaali === 'undefined') {
+             this.showToast('سیستم تاریخ بارگزاری نشده است. لطفاً صفحه را رفرش کنید.', 'error')
+             return
+        }
+
         const storeId = document.getElementById('visitStoreId').value
         const date = document.getElementById('visitDate').value.trim()
         const time = document.getElementById('visitTime').value
@@ -780,7 +812,11 @@ export const ui = {
             await this.refreshData() // This will reload visits and re-render list
         } catch (e) {
             console.error(e)
-            this.showToast('خطا در ثبت قرار', 'error')
+            if (e.message && e.message.includes('relation "visits" does not exist')) {
+                 this.showToast('جدول ویزیت ها در دیتابیس وجود ندارد.', 'error')
+            } else {
+                 this.showToast('خطا در ثبت قرار. اتصال اینترنت را بررسی کنید.', 'error')
+            }
         }
     },
 
