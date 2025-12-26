@@ -222,6 +222,43 @@
 
                     <!-- Tab: Stores Table -->
                     <div class="tab-pane fade" id="tab-stores">
+                        <!-- Toolbar -->
+                        <div class="row g-2 mb-3 align-items-end">
+                            <div class="col-md-3">
+                                <label class="form-label small">جستجو</label>
+                                <input type="text" class="form-control form-control-sm" id="manageSearch" placeholder="نام، تلفن...">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small">فیلتر منطقه</label>
+                                <select class="form-select form-select-sm" id="manageFilterRegion">
+                                    <option value="all">همه</option>
+                                    <!-- Populated by JS -->
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small">مرتب‌سازی</label>
+                                <select class="form-select form-select-sm" id="manageSort">
+                                    <option value="name">نام (الف-ی)</option>
+                                    <option value="newest">جدیدترین</option>
+                                    <option value="oldest">قدیمی‌ترین</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small">نمایش</label>
+                                <select class="form-select form-select-sm" id="managePageSize">
+                                    <option value="10">۱۰ مورد</option>
+                                    <option value="20">۲۰ مورد</option>
+                                    <option value="50">۵۰ مورد</option>
+                                    <option value="all">همه (لود شده)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <button class="btn btn-sm btn-outline-primary w-100" id="manageLoadMoreBtn">
+                                    <i class="bi bi-cloud-download"></i> بیشتر
+                                </button>
+                            </div>
+                        </div>
+
                         <div class="table-responsive bg-white rounded shadow-sm p-3">
                             <table class="table table-hover align-middle">
                                 <thead class="table-light">

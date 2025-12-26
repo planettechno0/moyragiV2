@@ -75,14 +75,22 @@ export const ui = {
     async loadInitialData() {
         try {
             // Load Aux Data
-            const [regions, products, visits] = await Promise.all([
+            // We handle visits separately so if the table doesn't exist yet, the app still works.
+            const [regions, products] = await Promise.all([
                 db.getRegions(),
-                db.getProducts(),
-                db.getVisits()
+                db.getProducts()
             ])
             this.data.regions = regions || []
             this.data.products = products || []
-            this.data.visits = visits || []
+
+            try {
+                this.data.visits = await db.getVisits() || []
+            } catch (err) {
+                console.warn('Could not load visits (table might be missing):', err)
+                this.data.visits = []
+                // Optionally show a clearer error if it's not just a connection issue?
+                // For now, silent fallback is safer for UX than blocking everything.
+            }
 
             this.renderRegions()
             this.renderVisitsList()
@@ -202,6 +210,22 @@ export const ui = {
 
         // --- Visits ---
         document.getElementById('saveVisitBtn').addEventListener('click', () => this.handleSaveVisit())
+
+        // --- Management Toolbar ---
+        const refreshManagement = () => this.renderManagementTable()
+        document.getElementById('manageSearch').addEventListener('input', refreshManagement)
+        document.getElementById('manageFilterRegion').addEventListener('change', refreshManagement)
+        document.getElementById('manageSort').addEventListener('change', refreshManagement)
+        document.getElementById('managePageSize').addEventListener('change', refreshManagement)
+        document.getElementById('manageLoadMoreBtn').addEventListener('click', async () => {
+             // Load more from DB
+             await this.loadStoresChunk()
+             // renderManagementTable will be called if loadStoresChunk updates data?
+             // loadStoresChunk calls renderStores(), but not renderManagementTable.
+             // We need to call renderManagementTable explicitly if we are in management view.
+             if (this.currentView === 'management') this.renderManagementTable()
+             this.showToast('اطلاعات بیشتر بارگزاری شد', 'info')
+        })
 
         // --- Auth ---
         document.getElementById('logoutBtn').addEventListener('click', async () => {
@@ -394,7 +418,11 @@ export const ui = {
         list.innerHTML = ''
         // Reset dropdowns
         const currentFilter = filterSelect.value
+        const manageFilterSelect = document.getElementById('manageFilterRegion')
+        const currentManageFilter = manageFilterSelect ? manageFilterSelect.value : 'all'
+
         filterSelect.innerHTML = '<option value="all">همه مناطق</option>'
+        if (manageFilterSelect) manageFilterSelect.innerHTML = '<option value="all">همه</option>'
         modalSelect.innerHTML = ''
 
         this.data.regions.forEach(region => {
@@ -419,9 +447,17 @@ export const ui = {
             opt2.value = region.name
             opt2.textContent = region.name
             modalSelect.appendChild(opt2)
+
+            if (manageFilterSelect) {
+                const opt3 = document.createElement('option')
+                opt3.value = region.name
+                opt3.textContent = region.name
+                manageFilterSelect.appendChild(opt3)
+            }
         })
 
         filterSelect.value = currentFilter
+        if (manageFilterSelect) manageFilterSelect.value = currentManageFilter
 
         // Render Products List here too
         this.renderProducts()
@@ -457,8 +493,39 @@ export const ui = {
         const tbody = document.getElementById('storesTableBody')
         tbody.innerHTML = ''
 
-        // Use all loaded stores for management list
-        this.data.stores.forEach(store => {
+        // Get Filter/Search values
+        const search = document.getElementById('manageSearch').value.toLowerCase().trim()
+        const region = document.getElementById('manageFilterRegion').value
+        const sort = document.getElementById('manageSort').value
+        const size = document.getElementById('managePageSize').value
+
+        // Filter and Sort
+        let list = this.data.stores.filter(s => {
+            if (region !== 'all' && s.region !== region) return false
+            if (search) {
+                const match = s.name.toLowerCase().includes(search) ||
+                              (s.phone && s.phone.includes(search)) ||
+                              (s.seller_name && s.seller_name.toLowerCase().includes(search))
+                if (!match) return false
+            }
+            return true
+        })
+
+        if (sort === 'name') {
+            list.sort((a, b) => a.name.localeCompare(b.name, 'fa'))
+        } else if (sort === 'newest') {
+            list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        } else if (sort === 'oldest') {
+            list.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+        }
+
+        // Limit
+        if (size !== 'all') {
+            list = list.slice(0, parseInt(size))
+        }
+
+        // Render
+        list.forEach(store => {
             const tr = document.createElement('tr')
             tr.innerHTML = `
                 <td>${this.escapeHtml(store.name)}</td>
