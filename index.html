@@ -380,6 +380,12 @@
                             </button>
                         </div>
 
+                        <div class="mt-2">
+                             <button class="btn btn-outline-info w-100" id="showDbScriptBtn">
+                                <i class="bi bi-database-gear"></i> دریافت اسکریپت آپدیت دیتابیس
+                            </button>
+                        </div>
+
                         <hr>
                         <h6 class="fw-bold mb-2 small text-muted">مدیریت فایل‌های پشتیبان</h6>
 
@@ -540,6 +546,26 @@
                 </div>
             </div>
         </div>
+
+    <!-- Modal: SQL Script -->
+    <div class="modal fade" id="sqlModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">اسکریپت آپدیت دیتابیس</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted">کد زیر را کپی کرده و در بخش SQL Editor در پنل Supabase اجرا کنید تا جدول‌های جدید ساخته شوند.</p>
+                    <textarea class="form-control" id="sqlContent" rows="10" readonly style="direction: ltr; font-family: monospace; font-size: 0.8rem;"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" id="copySqlBtn">کپی کردن</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">بستن</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
         <!-- Modal: Add/Edit Order -->
         <div class="modal fade" id="orderModal" tabindex="-1">
