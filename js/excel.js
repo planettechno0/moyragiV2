@@ -114,6 +114,16 @@ export const backupToExcel = (data) => {
         XLSX.utils.book_append_sheet(workbook, wsOrders, "Orders");
     }
 
+    // 5. Visits
+    if (data.visits && data.visits.length) {
+        const cleanVisits = data.visits.map(v => {
+            const { store, ...rest } = v; // Remove nested store object
+            return rest;
+        });
+        const wsVisits = XLSX.utils.json_to_sheet(cleanVisits);
+        XLSX.utils.book_append_sheet(workbook, wsVisits, "Visits");
+    }
+
     XLSX.writeFile(workbook, `Moyragi_Backup_${new Date().toISOString().slice(0,10)}.xlsx`);
 };
 
@@ -158,6 +168,11 @@ export const parseExcelBackup = (file) => {
                         ...o,
                         items: o.items ? JSON.parse(o.items) : []
                     }));
+                }
+
+                // Visits
+                if (workbook.Sheets["Visits"]) {
+                    result.visits = XLSX.utils.sheet_to_json(workbook.Sheets["Visits"]);
                 }
 
                 resolve(result);

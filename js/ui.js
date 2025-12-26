@@ -2,13 +2,15 @@ import { db } from './db.js'
 import { auth } from './auth.js'
 import { exportToExcel, backupToExcel, parseExcelBackup } from './excel.js'
 import { backupToJSON, parseJSONBackup } from './backup.js'
+import { dateUtils } from './date_utils.js'
 
 export const ui = {
     // State
     data: {
         stores: [],
         regions: [],
-        products: []
+        products: [],
+        visits: []
     },
     pagination: {
         page: 0,
@@ -73,13 +75,18 @@ export const ui = {
     async loadInitialData() {
         try {
             // Load Aux Data
-            const [regions, products] = await Promise.all([
+            const [regions, products, visits] = await Promise.all([
                 db.getRegions(),
-                db.getProducts()
+                db.getProducts(),
+                db.getVisits()
             ])
             this.data.regions = regions || []
             this.data.products = products || []
+            this.data.visits = visits || []
+
             this.renderRegions()
+            this.renderVisitsList()
+            this.checkVisitNotifications()
 
             // Load Stores (Page 0)
             this.resetPagination()
@@ -185,8 +192,16 @@ export const ui = {
         // --- Views ---
         document.getElementById('dailySalesBtn').addEventListener('click', () => this.showDailySales())
         document.getElementById('ordersViewBtn').addEventListener('click', () => this.switchView('orders'))
-        document.getElementById('backToDashboardBtn').addEventListener('click', () => this.switchView('dashboard'))
+        document.getElementById('managementViewBtn').addEventListener('click', () => this.switchView('management'))
+
+        document.querySelectorAll('.back-to-dash-btn').forEach(btn => {
+            btn.addEventListener('click', () => this.switchView('dashboard'))
+        })
+
         document.getElementById('orderDateFilter').addEventListener('change', () => this.renderAllOrders())
+
+        // --- Visits ---
+        document.getElementById('saveVisitBtn').addEventListener('click', () => this.handleSaveVisit())
 
         // --- Auth ---
         document.getElementById('logoutBtn').addEventListener('click', async () => {
@@ -198,18 +213,26 @@ export const ui = {
     switchView(viewName) {
         const dashboard = document.getElementById('dashboardView')
         const orders = document.getElementById('ordersView')
+        const management = document.getElementById('managementView')
         const fab = document.getElementById('fabContainer')
+
+        // Hide all
+        dashboard.classList.add('d-none')
+        orders.classList.add('d-none')
+        management.classList.add('d-none')
+        fab.classList.add('d-none')
 
         if (viewName === 'dashboard') {
             dashboard.classList.remove('d-none')
-            orders.classList.add('d-none')
             fab.classList.remove('d-none')
-            this.renderStores() // Re-render to ensure updates
+            this.renderStores()
         } else if (viewName === 'orders') {
-            dashboard.classList.add('d-none')
             orders.classList.remove('d-none')
-            fab.classList.add('d-none')
             this.renderAllOrders()
+        } else if (viewName === 'management') {
+            management.classList.remove('d-none')
+            this.renderManagementTable()
+            this.renderVisitsList()
         }
     },
 
@@ -343,9 +366,14 @@ export const ui = {
                         ${store.phone ? `<p class="card-text small mb-2"><i class="bi bi-telephone"></i> <a href="tel:${this.escapeHtml(store.phone)}" class="text-decoration-none">${this.escapeHtml(store.phone)}</a></p>` : ''}
 
                         <div class="mb-3">${badges}</div>
-                        <button class="btn btn-sm btn-outline-primary w-100" data-action="new-order" data-store-id="${store.id}">
-                            <i class="bi bi-cart-plus"></i> ثبت سفارش
-                        </button>
+                        <div class="d-flex gap-2 mb-2">
+                             <button class="btn btn-sm btn-outline-primary flex-grow-1" data-action="new-order" data-store-id="${store.id}">
+                                <i class="bi bi-cart-plus"></i> سفارش
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" data-action="new-visit" data-store-id="${store.id}" title="ثبت قرار ویزیت">
+                                <i class="bi bi-calendar-plus"></i>
+                            </button>
+                        </div>
                         ${ordersHtml}
                     </div>
                 </div>
@@ -423,6 +451,92 @@ export const ui = {
             opt.dataset.name = product.name
             select.appendChild(opt)
         })
+    },
+
+    renderManagementTable() {
+        const tbody = document.getElementById('storesTableBody')
+        tbody.innerHTML = ''
+
+        // Use all loaded stores for management list
+        this.data.stores.forEach(store => {
+            const tr = document.createElement('tr')
+            tr.innerHTML = `
+                <td>${this.escapeHtml(store.name)}</td>
+                <td>${this.escapeHtml(store.region)}</td>
+                <td>${this.escapeHtml(store.seller_name || '-')}</td>
+                <td>${this.escapeHtml(store.phone || '-')}</td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-outline-primary me-1" data-action="edit-store" data-store-id="${store.id}">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" data-action="delete-store" data-store-id="${store.id}">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            `
+            tbody.appendChild(tr)
+        })
+
+        // Bind actions in the table container using delegation
+        tbody.onclick = (e) => {
+             const btn = e.target.closest('button')
+             if (!btn) return
+             if (btn.dataset.action === 'edit-store') {
+                 this.openAddStoreModal(btn.dataset.storeId)
+             }
+             // delete-store is handled by global click listener in main.js,
+             // but since we stop propagation here if we don't return, we should be careful.
+             // Actually, letting it bubble up is better.
+        }
+    },
+
+    renderVisitsList() {
+        const tbody = document.getElementById('visitsTableBody')
+        const noMsg = document.getElementById('noVisitsMsg')
+
+        if (this.data.visits.length === 0) {
+            tbody.innerHTML = ''
+            noMsg.classList.remove('d-none')
+            return
+        }
+        noMsg.classList.add('d-none')
+
+        tbody.innerHTML = ''
+        this.data.visits.forEach(visit => {
+            const statusBadge = visit.status === 'done'
+                ? '<span class="badge bg-success">انجام شده</span>'
+                : '<span class="badge bg-warning text-dark">در انتظار</span>';
+
+            const tr = document.createElement('tr')
+            tr.innerHTML = `
+                <td>${this.escapeHtml(visit.visit_date)}</td>
+                <td>${this.escapeHtml(visit.visit_time || '-')}</td>
+                <td>${this.escapeHtml(visit.store?.name || '-')}</td>
+                <td><small class="text-muted">${this.escapeHtml(visit.note || '-')}</small></td>
+                <td>${statusBadge}</td>
+                <td class="text-end">
+                    ${visit.status !== 'done' ? `
+                    <button class="btn btn-sm btn-success me-1" data-action="complete-visit" data-id="${visit.id}" title="انجام شد">
+                        <i class="bi bi-check-lg"></i>
+                    </button>` : ''}
+                    <button class="btn btn-sm btn-outline-danger" data-action="delete-visit" data-id="${visit.id}" title="حذف">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            `
+            tbody.appendChild(tr)
+        })
+    },
+
+    checkVisitNotifications() {
+        const tomorrow = dateUtils.getTomorrowJalaali();
+        const upcoming = this.data.visits.filter(v => v.visit_date === tomorrow && v.status !== 'done');
+
+        if (upcoming.length > 0) {
+            const names = upcoming.map(v => v.store?.name).slice(0, 3).join('، ');
+            const more = upcoming.length > 3 ? ` و ${upcoming.length - 3} مورد دیگر` : '';
+            this.showToast(`یادآوری: فردا ${upcoming.length} قرار ویزیت دارید (${names}${more})`, 'info');
+        }
     },
 
     renderAllOrders() {
@@ -542,9 +656,66 @@ export const ui = {
                 else this.renderStores()
             }
         }
+        else if (action === 'delete-store') {
+             if (confirm('آیا از حذف فروشگاه و تمام سفارشات آن اطمینان دارید؟')) {
+                 await db.deleteStore(btn.dataset.storeId)
+                 await this.refreshData()
+                 this.renderStores()
+                 if (this.currentView === 'management') this.renderManagementTable()
+             }
+        }
+        else if (action === 'new-visit') {
+            this.openVisitModal(btn.dataset.storeId)
+        }
+        else if (action === 'delete-visit') {
+            if (confirm('قرار ویزیت حذف شود؟')) {
+                await db.deleteVisit(btn.dataset.id)
+                await this.refreshData() // reload visits
+            }
+        }
+        else if (action === 'complete-visit') {
+            await db.updateVisitStatus(btn.dataset.id, 'done')
+            await this.refreshData() // reload visits
+        }
     },
 
     // --- Modal Logic ---
+
+    openVisitModal(storeId) {
+        document.getElementById('visitStoreId').value = storeId
+        document.getElementById('visitDate').value = dateUtils.getTodayJalaali() // Default to today or empty?
+        document.getElementById('visitTime').value = ''
+        document.getElementById('visitNote').value = ''
+        new bootstrap.Modal(document.getElementById('visitModal')).show()
+    },
+
+    async handleSaveVisit() {
+        const storeId = document.getElementById('visitStoreId').value
+        const date = document.getElementById('visitDate').value.trim()
+        const time = document.getElementById('visitTime').value
+        const note = document.getElementById('visitNote').value
+
+        // Basic validation for Shamsi date format YYYY/MM/DD
+        if (!/^\d{4}\/\d{2}\/\d{2}$/.test(date)) {
+            this.showToast('فرمت تاریخ باید 1402/01/01 باشد', 'error')
+            return
+        }
+
+        try {
+            await db.addVisit({
+                storeId,
+                visitDate: date,
+                visitTime: time,
+                note
+            })
+            this.showToast('قرار ویزیت ثبت شد', 'success')
+            bootstrap.Modal.getInstance(document.getElementById('visitModal')).hide()
+            await this.refreshData() // This will reload visits and re-render list
+        } catch (e) {
+            console.error(e)
+            this.showToast('خطا در ثبت قرار', 'error')
+        }
+    },
 
     openAddStoreModal(storeId = null) {
         const form = document.getElementById('addStoreForm')
@@ -769,7 +940,7 @@ export const ui = {
         }
 
         const orderData = {
-            date: new Date().toLocaleDateString('fa-IR'),
+            date: dateUtils.toJalaali(new Date()), // Use Jalaali library for consistency
             text,
             items: this.currentOrderItems
         }
@@ -788,14 +959,17 @@ export const ui = {
     },
 
     showDailySales() {
-         const today = new Date().toLocaleDateString('fa-IR')
+         // Check both standard string format and locale string for backward compatibility
+         const todayJalaali = dateUtils.toJalaali(new Date())
+         const todayLocale = new Date().toLocaleDateString('fa-IR')
+
          let count = 0
          let products = {}
 
          this.data.stores.forEach(s => {
              if (s.orders) {
                  s.orders.forEach(o => {
-                     if (o.date === today) {
+                     if (o.date === todayJalaali || o.date === todayLocale) {
                          count++
                          if (o.items) {
                              o.items.forEach(i => {
