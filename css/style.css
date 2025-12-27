@@ -109,7 +109,8 @@ body {
 /* Custom Buttons for Card */
 .btn-action-primary {
     border-radius: 12px !important;
-    padding: 0.75rem 1rem;
+    height: 50px;
+    padding: 0;
     background-color: #2563eb; /* Stronger blue */
     border-color: #2563eb;
     box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);
@@ -122,8 +123,7 @@ body {
 
 .btn-action-secondary {
     border-radius: 12px !important;
-    width: 50px; /* Square */
-    height: 50px; /* Match height of primary roughly or fixed */
+    height: 50px; /* Match height of primary */
     padding: 0;
     border-color: #e5e7eb;
     color: #6b7280;
@@ -133,6 +133,20 @@ body {
     background-color: #f3f4f6;
     color: #374151;
     border-color: #d1d5db;
+}
+
+/* Fixed heights for consistent card layout */
+.fixed-height-header {
+    min-height: 40px;
+}
+.fixed-height-info {
+    height: 85px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+.fixed-height-badges {
+    min-height: 25px;
 }
 
 /* Badge Tweaks */

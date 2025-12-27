@@ -452,9 +452,9 @@ export const ui = {
             card.className = 'col-md-6 col-lg-4'
             card.innerHTML = `
                 <div class="card h-100 store-card ${store.visited ? 'visited' : ''}">
-                    <div class="card-body p-2">
+                    <div class="card-body p-2 d-flex flex-column">
                         <!-- Header -->
-                        <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div class="d-flex justify-content-between align-items-start mb-2 fixed-height-header">
                             <div class="d-flex flex-column align-items-start">
                                 <h5 class="card-title fw-bold mb-1 text-dark" style="font-size: 1.1rem;">${this.escapeHtml(store.name)}</h5>
                                 <button class="btn btn-link p-0 text-decoration-none text-muted small" data-action="edit-store" data-store-id="${store.id}">
@@ -473,7 +473,7 @@ export const ui = {
                         </div>
 
                         <!-- Info Box -->
-                        <div class="store-info-box bg-light rounded-3 p-2 mb-2">
+                        <div class="store-info-box bg-light rounded-3 p-2 mb-2 fixed-height-info">
                              <!-- Address -->
                              <div class="d-flex justify-content-end align-items-center mb-1 text-end">
                                  <span class="text-secondary small text-truncate" style="max-width: 90%; font-size: 0.8rem;">${this.escapeHtml(store.address) || 'بدون آدرس'}</span>
@@ -497,20 +497,20 @@ export const ui = {
                         </div>
 
                         <!-- Other Badges -->
-                        <div class="mb-2 text-end">
+                        <div class="mb-2 text-end fixed-height-badges">
                             ${otherBadges}
                         </div>
 
                         <!-- Actions -->
-                        <div class="d-flex gap-2">
-                            <button class="btn btn-outline-info btn-action-secondary d-flex align-items-center justify-content-center" data-action="show-details" data-store-id="${store.id}" title="جزئیات بیشتر">
+                        <div class="d-flex gap-2 mt-auto">
+                            <button class="btn btn-outline-info btn-action-secondary flex-grow-1 d-flex align-items-center justify-content-center" data-action="show-details" data-store-id="${store.id}" title="جزئیات بیشتر">
                                 <i class="bi bi-info-circle fs-5"></i>
                             </button>
-                             <button class="btn btn-outline-secondary btn-action-secondary d-flex align-items-center justify-content-center" data-action="new-visit" data-store-id="${store.id}" title="ثبت ویزیت">
+                             <button class="btn btn-outline-secondary btn-action-secondary flex-grow-1 d-flex align-items-center justify-content-center" data-action="new-visit" data-store-id="${store.id}" title="ثبت ویزیت">
                                 <i class="bi bi-calendar4 fs-5"></i>
                             </button>
-                            <button class="btn btn-primary btn-action-primary flex-grow-1 fw-bold d-flex align-items-center justify-content-center" data-action="new-order" data-store-id="${store.id}">
-                                <i class="bi bi-cart-plus me-2 fs-5"></i> ثبت سفارش
+                            <button class="btn btn-primary btn-action-primary flex-grow-1 d-flex align-items-center justify-content-center" data-action="new-order" data-store-id="${store.id}" title="ثبت سفارش">
+                                <i class="bi bi-cart-plus fs-5"></i>
                             </button>
                         </div>
                     </div>
