@@ -591,6 +591,63 @@
             </div>
         </div>
 
+    <!-- Modal: Store Details -->
+    <div class="modal fade" id="storeDetailsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="storeDetailsTitle">جزئیات فروشگاه</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Info Section -->
+                    <div class="mb-4">
+                        <h6 class="fw-bold mb-3 border-bottom pb-2 text-primary">اطلاعات کلی</h6>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="text-muted small mb-1">نام فروشگاه</div>
+                                <div id="detailName" class="fw-bold">-</div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="text-muted small mb-1">منطقه</div>
+                                <div id="detailRegion" class="fw-bold">-</div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="text-muted small mb-1">فروشنده</div>
+                                <div id="detailSeller" class="fw-bold">-</div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="text-muted small mb-1">تلفن</div>
+                                <div id="detailPhone" class="fw-bold" dir="ltr">-</div>
+                            </div>
+                            <div class="col-12">
+                                <div class="text-muted small mb-1">آدرس</div>
+                                <div id="detailAddress" class="fw-bold">-</div>
+                            </div>
+                            <div class="col-12">
+                                <div class="text-muted small mb-1">توضیحات</div>
+                                <div id="detailDesc">-</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Orders Section -->
+                    <div>
+                         <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
+                            <h6 class="fw-bold m-0 text-primary">تاریخچه سفارشات</h6>
+                         </div>
+                         <div id="detailOrdersList" class="list-group list-group-flush">
+                             <!-- Orders list will be injected here -->
+                         </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">بستن</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal: SQL Script -->
     <div class="modal fade" id="sqlModal" tabindex="-1">
         <div class="modal-dialog">
