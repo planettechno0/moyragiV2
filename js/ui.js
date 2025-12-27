@@ -428,22 +428,24 @@ export const ui = {
         }
 
         filteredStores.forEach(store => {
-            // Badges
-            let badges = ''
-            if (store.visit_days) {
-                store.visit_days.sort().forEach(d => {
-                    const isToday = (d === currentDayIndex)
-                    const badgeClass = isToday ? 'bg-primary' : 'bg-secondary'
-                    badges += `<span class="badge ${badgeClass} me-1">${this.daysMap[d]}</span>`
-                })
+            // Header Badge (Day)
+            let headerBadge = ''
+            if (store.visit_days && store.visit_days.length > 0) {
+                // Try to find today, else show first
+                const today = store.visit_days.find(d => d === currentDayIndex)
+                const dayToShow = today !== undefined ? today : store.visit_days[0]
+                headerBadge = `<span class="badge bg-primary-subtle text-primary rounded-pill px-3">${this.daysMap[dayToShow]}</span>`
             }
+
+            // Other Badges
+            let otherBadges = ''
             if (store.ideal_time) {
-                badges += `<span class="badge bg-info text-dark me-1"><i class="bi bi-clock"></i> ${this.idealTimeMap[store.ideal_time]}</span>`
+                otherBadges += `<span class="badge bg-info-subtle text-dark me-1 border"><i class="bi bi-clock"></i> ${this.idealTimeMap[store.ideal_time]}</span>`
             }
             if (store.purchase_prob) {
                 const probText = store.purchase_prob === 'high' ? 'احتمال خرید: زیاد' : 'احتمال خرید: کم'
-                const probClass = store.purchase_prob === 'high' ? 'bg-success' : 'bg-warning text-dark'
-                badges += `<span class="badge ${probClass} me-1"><i class="bi bi-graph-up"></i> ${probText}</span>`
+                const probClass = store.purchase_prob === 'high' ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-dark'
+                otherBadges += `<span class="badge ${probClass} me-1 border"><i class="bi bi-graph-up"></i> ${probText}</span>`
             }
 
             // Orders
@@ -479,34 +481,67 @@ export const ui = {
             const card = document.createElement('div')
             card.className = 'col-md-6 col-lg-4'
             card.innerHTML = `
-                <div class="card h-100 ${store.visited ? 'visited' : ''}">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <div>
-                                <h5 class="card-title fw-bold mb-0">${this.escapeHtml(store.name)}</h5>
-                                <button class="btn btn-link btn-sm p-0 text-decoration-none" data-action="edit-store" data-store-id="${store.id}">
-                                    <i class="bi bi-pencil-square"></i> ویرایش
+                <div class="card h-100 store-card ${store.visited ? 'visited' : ''}">
+                    <div class="card-body p-3">
+                        <!-- Header -->
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div class="d-flex flex-column align-items-start">
+                                <h5 class="card-title fw-bold mb-1 text-dark">${this.escapeHtml(store.name)}</h5>
+                                <button class="btn btn-link p-0 text-decoration-none text-muted small" data-action="edit-store" data-store-id="${store.id}">
+                                     ${this.escapeHtml(store.region)} <i class="bi bi-pencil-fill small ms-1" style="font-size: 0.7em;"></i>
                                 </button>
                             </div>
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" ${store.visited ? 'checked' : ''} data-action="toggle-visit" data-store-id="${store.id}">
+                            <div class="align-self-center">
+                                 ${headerBadge}
+                            </div>
+                            <div class="text-center">
+                                 <div class="form-check form-switch d-inline-block">
+                                     <input class="form-check-input" type="checkbox" ${store.visited ? 'checked' : ''} data-action="toggle-visit" data-store-id="${store.id}" style="width: 2.5em; height: 1.25em;">
+                                 </div>
+                                 <div class="small text-muted mt-1" style="font-size: 0.65rem;">وضعیت</div>
                             </div>
                         </div>
-                        <h6 class="card-subtitle mb-2 text-muted"><i class="bi bi-geo-alt-fill"></i> ${this.escapeHtml(store.region)}</h6>
-                        <p class="card-text small mb-2">${this.escapeHtml(store.address) || 'بدون آدرس'}</p>
-                        ${store.description ? `<p class="card-text small mb-2 text-muted">${this.escapeHtml(store.description)}</p>` : ''}
-                        ${store.seller_name ? `<p class="card-text small mb-2"><i class="bi bi-person"></i> ${this.escapeHtml(store.seller_name)}</p>` : ''}
-                        ${store.phone ? `<p class="card-text small mb-2"><i class="bi bi-telephone"></i> <a href="tel:${this.escapeHtml(store.phone)}" class="text-decoration-none">${this.escapeHtml(store.phone)}</a></p>` : ''}
 
-                        <div class="mb-3">${badges}</div>
-                        <div class="d-flex gap-2 mb-2">
-                             <button class="btn btn-sm btn-outline-primary flex-grow-1" data-action="new-order" data-store-id="${store.id}">
-                                <i class="bi bi-cart-plus"></i> سفارش
+                        <!-- Info Box -->
+                        <div class="store-info-box bg-light rounded-4 p-3 mb-3">
+                             <!-- Address -->
+                             <div class="d-flex justify-content-end align-items-center mb-2 text-end">
+                                 <span class="text-secondary small text-truncate" style="max-width: 90%;">${this.escapeHtml(store.address) || 'بدون آدرس'}</span>
+                                 <i class="bi bi-geo-alt-fill text-secondary ms-2"></i>
+                             </div>
+                             <hr class="my-2 border-secondary opacity-10">
+                             <!-- Row 2: Phone | Seller -->
+                             <div class="d-flex justify-content-between align-items-center">
+                                 <!-- Phone (Left) -->
+                                 <div class="d-flex align-items-center">
+                                     <i class="bi bi-telephone-fill text-secondary me-2"></i>
+                                     <a href="tel:${this.escapeHtml(store.phone)}" class="text-decoration-none text-dark fw-bold small" dir="ltr">${this.escapeHtml(store.phone) || '-'}</a>
+                                 </div>
+                                 <div class="vr text-secondary opacity-25" style="height: 20px;"></div>
+                                 <!-- Seller (Right) -->
+                                 <div class="d-flex align-items-center">
+                                     <span class="fw-bold small text-dark">${this.escapeHtml(store.seller_name) || '-'}</span>
+                                     <i class="bi bi-person-fill text-secondary ms-2"></i>
+                                 </div>
+                             </div>
+                        </div>
+
+                        <!-- Other Badges -->
+                        <div class="mb-3 text-end">
+                            ${otherBadges}
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="d-flex gap-2">
+                             <button class="btn btn-outline-secondary btn-action-secondary d-flex align-items-center justify-content-center" data-action="new-visit" data-store-id="${store.id}">
+                                <i class="bi bi-calendar4 fs-5"></i>
                             </button>
-                            <button class="btn btn-sm btn-outline-secondary" data-action="new-visit" data-store-id="${store.id}" title="ثبت قرار ویزیت">
-                                <i class="bi bi-calendar-plus"></i>
+                            <button class="btn btn-primary btn-action-primary flex-grow-1 fw-bold d-flex align-items-center justify-content-center" data-action="new-order" data-store-id="${store.id}">
+                                <i class="bi bi-cart-plus me-2 fs-5"></i> ثبت سفارش جدید
                             </button>
                         </div>
+
+                        <!-- Orders -->
                         ${ordersHtml}
                     </div>
                 </div>

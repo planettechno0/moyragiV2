@@ -12,7 +12,7 @@ body {
 }
 
 .card.visited {
-    background-color: #d1e7dd;
+    background-color: #ffffff;
     border: 1px solid #badbcc;
 }
 
@@ -80,4 +80,62 @@ body {
     background: white;
     border-radius: 12px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+
+/* Store Card Redesign */
+.store-card {
+    border: 1px solid #f0f0f0; /* Very subtle border */
+    border-radius: 16px !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03); /* Lighter shadow */
+}
+
+.store-card.visited {
+    border-color: #badbcc;
+    /* Maintain the visited background logic from previous CSS or allow it to override if needed */
+}
+
+.store-info-box {
+    background-color: #f8f9fa; /* Bootstrap light */
+    border-radius: 12px !important;
+}
+
+/* Vertical divider in store card */
+.vr {
+    width: 1px;
+    background-color: #dee2e6;
+    opacity: 0.5;
+}
+
+/* Custom Buttons for Card */
+.btn-action-primary {
+    border-radius: 12px !important;
+    padding: 0.75rem 1rem;
+    background-color: #2563eb; /* Stronger blue */
+    border-color: #2563eb;
+    box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);
+}
+
+.btn-action-primary:hover {
+    background-color: #1d4ed8;
+    border-color: #1d4ed8;
+}
+
+.btn-action-secondary {
+    border-radius: 12px !important;
+    width: 50px; /* Square */
+    height: 50px; /* Match height of primary roughly or fixed */
+    padding: 0;
+    border-color: #e5e7eb;
+    color: #6b7280;
+}
+
+.btn-action-secondary:hover {
+    background-color: #f3f4f6;
+    color: #374151;
+    border-color: #d1d5db;
+}
+
+/* Badge Tweaks */
+.badge {
+    font-weight: 500;
 }
