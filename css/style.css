@@ -140,7 +140,7 @@ body {
     min-height: 40px;
 }
 .fixed-height-info {
-    height: 85px;
+    height: 110px;
     display: flex;
     flex-direction: column;
     justify-content: center;

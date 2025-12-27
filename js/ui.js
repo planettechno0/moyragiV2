@@ -428,13 +428,13 @@ export const ui = {
         }
 
         filteredStores.forEach(store => {
-            // Header Badge (Day)
-            let headerBadge = ''
+            // Day Badge Logic
+            let dayBadge = ''
             if (store.visit_days && store.visit_days.length > 0) {
                 // Try to find today, else show first
                 const today = store.visit_days.find(d => d === currentDayIndex)
                 const dayToShow = today !== undefined ? today : store.visit_days[0]
-                headerBadge = `<span class="badge bg-primary-subtle text-primary rounded-pill px-3">${this.daysMap[dayToShow]}</span>`
+                dayBadge = `<div class="d-flex align-items-center"><i class="bi bi-calendar-event text-secondary me-1 small"></i><span class="text-primary fw-bold small">${this.daysMap[dayToShow]}</span></div>`
             }
 
             // Other Badges
@@ -461,14 +461,10 @@ export const ui = {
                                      ${this.escapeHtml(store.region)} <i class="bi bi-pencil-fill small ms-1" style="font-size: 0.7em;"></i>
                                 </button>
                             </div>
-                            <div class="align-self-center">
-                                 ${headerBadge}
-                            </div>
                             <div class="text-center">
                                  <div class="form-check form-switch d-inline-block">
                                      <input class="form-check-input" type="checkbox" ${store.visited ? 'checked' : ''} data-action="toggle-visit" data-store-id="${store.id}" style="width: 2.5em; height: 1.25em;">
                                  </div>
-                                 <div class="small text-muted mt-1" style="font-size: 0.65rem;">وضعیت</div>
                             </div>
                         </div>
 
@@ -481,7 +477,7 @@ export const ui = {
                              </div>
                              <hr class="my-1 border-secondary opacity-10">
                              <!-- Row 2: Phone | Seller -->
-                             <div class="d-flex justify-content-between align-items-center">
+                             <div class="d-flex justify-content-between align-items-center mb-1">
                                  <!-- Phone (Left) -->
                                  <div class="d-flex align-items-center">
                                      <i class="bi bi-telephone-fill text-secondary me-1 small"></i>
@@ -494,6 +490,12 @@ export const ui = {
                                      <i class="bi bi-person-fill text-secondary ms-1 small"></i>
                                  </div>
                              </div>
+                             ${dayBadge ? `
+                             <hr class="my-1 border-secondary opacity-10">
+                             <!-- Row 3: Day Badge -->
+                             <div class="d-flex justify-content-center align-items-center">
+                                 ${dayBadge}
+                             </div>` : ''}
                         </div>
 
                         <!-- Other Badges -->
