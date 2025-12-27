@@ -66,7 +66,7 @@ export const parseJSONBackup = (file) => {
 
                             // Map camelCase to snake_case explicitly
                             const mappedStore = {
-                                id: storeProps.id,
+                                id: Math.floor(storeProps.id), // Ensure ID is integer
                                 name: storeProps.name,
                                 description: storeProps.description,
                                 address: storeProps.address,
@@ -85,11 +85,11 @@ export const parseJSONBackup = (file) => {
                             if (orders && Array.isArray(orders)) {
                                 orders.forEach(order => {
                                     result.orders.push({
-                                        id: order.id,
+                                        id: Math.floor(order.id), // Ensure ID is integer
                                         date: order.date,
                                         text: order.text,
                                         items: order.items,
-                                        store_id: store.id
+                                        store_id: Math.floor(store.id) // Ensure ID is integer
                                     });
                                 });
                             }
