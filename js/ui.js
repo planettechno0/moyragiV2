@@ -263,6 +263,14 @@ export const ui = {
              }
         })
 
+        // --- Stats ---
+        document.getElementById('tab-stats-btn').addEventListener('shown.bs.tab', () => {
+            this.renderStoreStats()
+        })
+        document.getElementById('refreshStatsBtn').addEventListener('click', () => {
+            this.renderStoreStats()
+        })
+
         // --- Auth ---
         document.getElementById('logoutBtn').addEventListener('click', async () => {
             await auth.logout()
@@ -297,6 +305,71 @@ export const ui = {
     },
 
     // --- Render Logic ---
+
+    async renderStoreStats() {
+        const totalEl = document.getElementById('statTotalStores')
+        const tbody = document.getElementById('statsTableBody')
+
+        totalEl.innerHTML = '<span class="spinner-border spinner-border-sm"></span>'
+        tbody.innerHTML = '<tr><td colspan="3" class="text-center"><span class="spinner-border spinner-border-sm"></span> در حال محاسبه...</td></tr>'
+
+        try {
+            // We need ALL stores for accurate stats.
+            // If data is already fully loaded (manageLoadAllBtn used), use it.
+            // Otherwise, fetch fresh.
+            let stores = this.data.stores
+            if (this.pagination.hasMore) {
+                // Not all loaded. Fetch all silently for stats? Or just use DB count?
+                // DB count is cheaper but we need Group By Region.
+                // Supabase doesn't support complex GROUP BY in simple client easily without RPC.
+                // So we fetch all columns (lightweight) or just needed columns.
+                // db.getAllStores() fetches everything including orders which is heavy.
+                // Let's assume for this scale it's fine, or optimized later.
+                stores = await db.getAllStores()
+                // Update local cache if we want, or just use for stats?
+                // Updating local cache might lag UI if thousands.
+                // Let's just use it for stats calculations here.
+            }
+
+            const total = stores.length
+            const regionCounts = {}
+
+            stores.forEach(s => {
+                const r = s.region || 'نامشخص'
+                regionCounts[r] = (regionCounts[r] || 0) + 1
+            })
+
+            // Render Total
+            totalEl.textContent = total.toLocaleString('fa-IR')
+
+            // Render Table
+            tbody.innerHTML = ''
+            const sortedRegions = Object.entries(regionCounts).sort((a, b) => b[1] - a[1]) // Sort by count desc
+
+            sortedRegions.forEach(([region, count]) => {
+                const percent = total > 0 ? Math.round((count / total) * 100) : 0
+                const tr = document.createElement('tr')
+                tr.innerHTML = `
+                    <td>${this.escapeHtml(region)}</td>
+                    <td class="text-center fw-bold">${count.toLocaleString('fa-IR')}</td>
+                    <td class="text-center">
+                        <div class="d-flex align-items-center justify-content-center">
+                            <span class="small me-2">%${percent.toLocaleString('fa-IR')}</span>
+                            <div class="progress flex-grow-1" style="height: 6px; max-width: 100px;">
+                                <div class="progress-bar" role="progressbar" style="width: ${percent}%"></div>
+                            </div>
+                        </div>
+                    </td>
+                `
+                tbody.appendChild(tr)
+            })
+
+        } catch (e) {
+            console.error(e)
+            totalEl.textContent = 'خطا'
+            tbody.innerHTML = '<tr><td colspan="3" class="text-center text-danger">خطا در دریافت اطلاعات</td></tr>'
+        }
+    },
 
     renderStores() {
         const container = document.getElementById('storesContainer')
@@ -662,18 +735,9 @@ export const ui = {
         })
 
         if (dateFilter) {
-            // Convert input date (YYYY-MM-DD) to Persian if needed, or assume Order Date is stored same way.
-            // Current app logic stores Persian date string.
-            // A real app would need a date conversion library (jalaali-js).
-            // For now, let's assume strict string match if user inputs Persian date string, but input type="date" gives Gregorian.
-            // We need to convert Gregorian `dateFilter` to Persian to match stored data.
-            // Since we don't have jalaali-js installed, we will skip complex filter logic or rely on simple string match if dates were ISO.
-            // *Correction*: User stores Persian dates manually? Or auto?
-            // `new Date().toLocaleDateString('fa-IR')` was used.
-            // We can try to convert the input date to fa-IR.
-            const [y, m, d] = dateFilter.split('-')
-            const pDate = new Date(y, m-1, d).toLocaleDateString('fa-IR')
-            allOrders = allOrders.filter(o => o.date === pDate)
+            // Updated to handle Persian string input directly
+            // If the user inputs a Persian date string (e.g., 1402/01/01), we filter by exact match.
+            allOrders = allOrders.filter(o => o.date === dateFilter.trim())
         }
 
         allOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) // Sort by created_at

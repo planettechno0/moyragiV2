@@ -195,9 +195,53 @@
                             <i class="bi bi-shop me-1"></i> لیست فروشگاه‌ها
                         </button>
                     </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-stats-btn" data-bs-toggle="tab" data-bs-target="#tab-stats" type="button">
+                            <i class="bi bi-pie-chart-fill me-1"></i> آمار فروشگاه‌ها
+                        </button>
+                    </li>
                 </ul>
 
                 <div class="tab-content">
+                    <!-- Tab: Stats -->
+                    <div class="tab-pane fade" id="tab-stats">
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-4">
+                                <div class="card text-center h-100 border-primary shadow-sm">
+                                    <div class="card-body">
+                                        <h6 class="text-muted mb-2">کل فروشگاه‌های ثبت شده</h6>
+                                        <h2 class="display-6 fw-bold text-primary" id="statTotalStores">-</h2>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card shadow-sm border-0">
+                            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                                <h6 class="m-0 fw-bold">آمار به تفکیک مناطق</h6>
+                                <button class="btn btn-sm btn-outline-secondary" id="refreshStatsBtn">
+                                    <i class="bi bi-arrow-clockwise"></i> بروزرسانی
+                                </button>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>نام منطقه</th>
+                                                <th class="text-center">تعداد فروشگاه</th>
+                                                <th class="text-center" style="width: 30%;">درصد</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="statsTableBody">
+                                            <!-- Populated by JS -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Tab: Visits -->
                     <div class="tab-pane fade show active" id="tab-visits">
                         <div class="table-responsive bg-white rounded shadow-sm p-3">
@@ -293,8 +337,8 @@
 
                 <div class="row mb-3">
                     <div class="col-md-4">
-                        <label class="form-label small text-muted">فیلتر تاریخ</label>
-                        <input type="date" class="form-control" id="orderDateFilter">
+                        <label class="form-label small text-muted">فیلتر تاریخ (شمسی)</label>
+                        <input type="text" class="form-control" id="orderDateFilter" placeholder="1402/01/01">
                     </div>
                 </div>
 

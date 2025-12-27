@@ -50,4 +50,25 @@ document.addEventListener('DOMContentLoaded', async () => {
             ui.init()
         }
     }
+
+    // Safety Check: Fix "Dark Screen" issues caused by lingering modals or hidden containers
+    setTimeout(() => {
+        // 1. Remove stuck modal backdrops
+        document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = ''; // Reset scroll if locked
+
+        // 2. Ensure a container is visible
+        const appContainer = document.getElementById('appContainer');
+        const authContainer = document.getElementById('authContainer');
+
+        if (appContainer.classList.contains('d-none') && authContainer.classList.contains('d-none')) {
+            console.warn('Safety Check: No container visible. Forcing visibility.');
+            if (auth.user) {
+                appContainer.classList.remove('d-none');
+            } else {
+                authContainer.classList.remove('d-none');
+            }
+        }
+    }, 1000); // 1 second delay to allow normal init to finish
 })
