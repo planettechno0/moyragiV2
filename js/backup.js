@@ -35,14 +35,76 @@ export const parseJSONBackup = (file) => {
         reader.onload = (e) => {
             try {
                 const data = JSON.parse(e.target.result);
+
+                // Detect Version 2 Schema (Legacy)
+                const isLegacyV2 = data.data && (data.data.visitor_stores || data.data.visitor_regions);
+
+                if (isLegacyV2) {
+                    const legacyData = data.data;
+                    const result = {
+                        regions: [],
+                        products: [],
+                        stores: [],
+                        orders: [],
+                        visits: [] // Legacy V2 schema doesn't seem to have visits in the provided snippet, but we initialize empty
+                    };
+
+                    // Map Regions
+                    if (legacyData.visitor_regions && Array.isArray(legacyData.visitor_regions)) {
+                        result.regions = legacyData.visitor_regions.map(r => ({ name: r }));
+                    }
+
+                    // Map Products
+                    if (legacyData.visitor_products && Array.isArray(legacyData.visitor_products)) {
+                        result.products = legacyData.visitor_products; // Format matches {id, name}
+                    }
+
+                    // Map Stores & Orders
+                    if (legacyData.visitor_stores && Array.isArray(legacyData.visitor_stores)) {
+                        legacyData.visitor_stores.forEach(store => {
+                            const { orders, ...storeProps } = store;
+
+                            // Map camelCase to snake_case explicitly
+                            const mappedStore = {
+                                id: storeProps.id,
+                                name: storeProps.name,
+                                description: storeProps.description,
+                                address: storeProps.address,
+                                phone: storeProps.phone,
+                                region: storeProps.region,
+                                visited: storeProps.visited,
+                                // Mapped fields
+                                seller_name: storeProps.sellerName,
+                                ideal_time: storeProps.idealTime,
+                                purchase_prob: storeProps.purchaseProb,
+                                visit_days: storeProps.visitDays
+                            };
+
+                            result.stores.push(mappedStore);
+
+                            if (orders && Array.isArray(orders)) {
+                                orders.forEach(order => {
+                                    result.orders.push({
+                                        id: order.id,
+                                        date: order.date,
+                                        text: order.text,
+                                        items: order.items,
+                                        store_id: store.id
+                                    });
+                                });
+                            }
+                        });
+                    }
+
+                    resolve(result);
+                    return;
+                }
+
+                // Standard Format Handling
                 // Validate basic structure
                 if (!data.regions && !data.stores) {
                     throw new Error("Invalid JSON format");
                 }
-
-                // If stores have nested orders (legacy format), we might want to extract them here
-                // or let the importer handle it. Ideally the importer expects a standard structure.
-                // Let's normalize it to the structure our new Excel importer produces: flat arrays.
 
                 const result = {
                     regions: data.regions || [],
