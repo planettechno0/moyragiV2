@@ -1,4 +1,4 @@
-const CACHE_NAME = 'moyragi-v2';
+const CACHE_NAME = 'moyragi-v3';
 const ASSETS = [
     './',
     './index.html',
