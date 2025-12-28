@@ -432,12 +432,16 @@ export const ui = {
             loadMoreContainer.classList.add('d-none');
         }
 
+        // Optimization: Create fragment and reuse date object
+        const fragment = document.createDocumentFragment();
+        const now = new Date();
+
         filteredStores.forEach(store => {
             // Determine Visited State (7-day window)
             let isVisited = false;
             if (store.last_visit) {
                 const lastVisitDate = new Date(store.last_visit);
-                const now = new Date();
+                // Optimization: reused 'now' instance
                 const diffTime = Math.abs(now - lastVisitDate);
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                 if (diffDays <= 7) {
@@ -542,8 +546,11 @@ export const ui = {
             // Attach specific listeners to buttons inside the card
             // Note: Efficient way is delegation, but for simplicity here we can bind individually or rely on container delegation.
             // Let's use delegation on container to avoid memory leaks on re-render.
-            container.appendChild(card)
+            fragment.appendChild(card)
         })
+
+        // Optimization: Append all at once
+        container.appendChild(fragment)
     },
 
     renderRegions() {
