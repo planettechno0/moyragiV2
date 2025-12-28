@@ -19,6 +19,10 @@ alter table visit_logs enable row level security;
 -- Add 'note' column if it doesn't exist (for existing tables)
 alter table visit_logs add column if not exists note text;
 
+-- Add Unique Index to prevent duplicate logs on the same day for the same store
+-- This is the "Hard" fix for race conditions
+create unique index if not exists idx_visit_logs_daily on visit_logs (store_id, (visited_at::date));
+
 drop policy if exists "Users can view their own visit_logs" on visit_logs;
 drop policy if exists "Users can insert their own visit_logs" on visit_logs;
 drop policy if exists "Users can update their own visit_logs" on visit_logs;

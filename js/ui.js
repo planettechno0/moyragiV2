@@ -163,6 +163,10 @@ export const ui = {
         document.getElementById('filterRegion').addEventListener('change', filterHandler)
         document.getElementById('filterProb').addEventListener('change', filterHandler)
 
+        // --- Toggle Visits (Separate Event for reliability) ---
+        // Using 'change' event on the container to catch checkbox toggles correctly
+        document.getElementById('storesContainer').addEventListener('change', (e) => this.handleStoreToggle(e))
+
         // --- Buttons ---
         document.getElementById('loadMoreBtn').addEventListener('click', () => this.loadStoresChunk())
         document.getElementById('addStoreBtn').addEventListener('click', () => this.openAddStoreModal())
@@ -798,6 +802,38 @@ export const ui = {
 
     // --- Action Handlers ---
 
+    async handleStoreToggle(e) {
+        const input = e.target;
+        if (!input.classList.contains('form-check-input') || input.dataset.action !== 'toggle-visit') return;
+
+        const id = input.dataset.storeId;
+        const visited = input.checked;
+
+        // Optimistic update
+        const store = this.data.stores.find(s => s.id == id);
+        if (store) {
+             store.visited = visited;
+             store.last_visit = visited ? new Date().toISOString() : null;
+        }
+
+        try {
+            if (visited) {
+                await db.logVisit(id);
+            } else {
+                await db.clearVisit(id);
+            }
+        } catch (error) {
+            console.error(error);
+            this.showToast('خطا در ثبت وضعیت', 'error');
+            // Revert on error
+            input.checked = !visited;
+            if (store) {
+                 store.visited = !visited;
+                 store.last_visit = !visited ? new Date().toISOString() : null;
+            }
+        }
+    },
+
     async handleGlobalClick(e) {
         const btn = e.target.closest('button') || e.target.closest('input[type="checkbox"]')
         if (!btn) return
@@ -805,43 +841,7 @@ export const ui = {
         const action = btn.dataset.action
         if (!action) return
 
-        if (action === 'toggle-visit') {
-            // Prevent double execution if triggered by click propagation on container
-            // The input 'change' event is reliable.
-            // BUT handleGlobalClick is bound to 'click' on the container.
-            // When clicking a label for a checkbox, it triggers click on label AND change on input.
-            // If we listen to click on input, it might fire.
-            // Let's rely on the checked state.
-            const id = btn.dataset.storeId
-            const visited = btn.checked
-
-            // Optimistic update to UI to feel responsive
-            const store = this.data.stores.find(s => s.id == id)
-            if (store) {
-                 store.visited = visited
-                 store.last_visit = visited ? new Date().toISOString() : null
-            }
-            // We do NOT call renderStores() immediately here to avoid losing focus or double-rendering glitches.
-            // We just let the switch animation play.
-
-            try {
-                if (visited) {
-                    await db.logVisit(id)
-                } else {
-                    await db.clearVisit(id)
-                }
-            } catch (e) {
-                console.error(e)
-                this.showToast('خطا در ثبت وضعیت', 'error')
-                // Revert state if failed
-                if (store) {
-                     store.visited = !visited
-                     store.last_visit = !visited ? new Date().toISOString() : null
-                }
-                this.renderStores() // Re-render to show correct state
-            }
-        }
-        else if (action === 'delete-region') {
+        if (action === 'delete-region') {
             if (confirm('حذف شود؟')) {
                 await db.deleteRegion(btn.dataset.id)
                 await this.refreshData()
