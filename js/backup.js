@@ -5,8 +5,11 @@ export const backupToJSON = (data) => {
     const exportData = {
         regions: data.regions || [],
         products: data.products || [],
-        stores: data.stores || [], // stores contain nested orders
-        visits: data.visits || []
+            stores: data.stores || [], // stores contain nested orders and visit_logs
+            visits: data.visits || [],
+            visit_logs: [] // We might want to export all logs separately or nested.
+            // Currently stores have nested visit_logs in db.getStores() response.
+            // If they are nested in 'stores', JSON stringify handles it.
     };
 
     // In db.js getStores() returns stores with orders nested.
@@ -62,7 +65,7 @@ export const parseJSONBackup = (file) => {
                     // Map Stores & Orders
                     if (legacyData.visitor_stores && Array.isArray(legacyData.visitor_stores)) {
                         legacyData.visitor_stores.forEach(store => {
-                            const { orders, ...storeProps } = store;
+                            const { orders, visit_logs, ...storeProps } = store;
 
                             // Map camelCase to snake_case explicitly
                             const mappedStore = {
@@ -73,11 +76,12 @@ export const parseJSONBackup = (file) => {
                                 phone: storeProps.phone,
                                 region: storeProps.region,
                                 visited: storeProps.visited,
+                                last_visit: storeProps.last_visit, // Preserve last_visit
                                 // Mapped fields
-                                seller_name: storeProps.sellerName,
-                                ideal_time: storeProps.idealTime,
-                                purchase_prob: storeProps.purchaseProb,
-                                visit_days: storeProps.visitDays
+                                seller_name: storeProps.sellerName || storeProps.seller_name,
+                                ideal_time: storeProps.idealTime || storeProps.ideal_time,
+                                purchase_prob: storeProps.purchaseProb || storeProps.purchase_prob,
+                                visit_days: storeProps.visitDays || storeProps.visit_days
                             };
 
                             result.stores.push(mappedStore);
@@ -116,7 +120,7 @@ export const parseJSONBackup = (file) => {
 
                 if (data.stores) {
                     data.stores.forEach(store => {
-                        const { orders, ...storeProps } = store;
+                        const { orders, visit_logs, ...storeProps } = store;
                         result.stores.push(storeProps);
 
                         if (orders && Array.isArray(orders)) {
@@ -127,6 +131,20 @@ export const parseJSONBackup = (file) => {
                                     store_id: store.id
                                 });
                             });
+                        }
+
+                        if (visit_logs && Array.isArray(visit_logs)) {
+                             // We don't have a top-level visit_logs array in the result object in current code,
+                             // but we should probably handle it if we want to support restoring logs.
+                             // However, 'importData' in db.js doesn't handle visit_logs yet.
+                             // We should update db.js importData as well.
+                             if (!result.visit_logs) result.visit_logs = [];
+                             visit_logs.forEach(log => {
+                                 result.visit_logs.push({
+                                     ...log,
+                                     store_id: store.id
+                                 });
+                             });
                         }
                     });
                 }

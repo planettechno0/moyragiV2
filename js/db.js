@@ -74,12 +74,22 @@ export const db = {
             .from('stores')
             .select(`
                 *,
-                orders (*)
+                orders (*),
+                visit_logs (*)
             `)
             .order('created_at', { ascending: false })
             .range(from, to);
 
         if (error) throw error
+
+        // Sort visit_logs
+        if (data) {
+             data.forEach(store => {
+                 if (store.visit_logs) {
+                     store.visit_logs.sort((a, b) => new Date(b.visited_at) - new Date(a.visited_at))
+                 }
+             })
+        }
 
         // Sort orders within stores
         if (data) {
@@ -137,9 +147,46 @@ export const db = {
         if (error) throw error
     },
 
-    async toggleVisit(id, visited) {
-        const { error } = await supabase.from('stores').update({ visited }).eq('id', id)
+    async logVisit(storeId) {
+        // 1. Update store's last_visit timestamp
+        const now = new Date().toISOString()
+        const { error: storeError } = await supabase
+            .from('stores')
+            .update({ last_visit: now, visited: true }) // Keep visited=true for backward compat/legacy state
+            .eq('id', storeId)
+
+        if (storeError) throw storeError
+
+        // 2. Insert into visit_logs
+        const { error: logError } = await supabase
+            .from('visit_logs')
+            .insert([{ store_id: storeId, visited_at: now }])
+
+        if (logError) throw logError
+    },
+
+    async clearVisit(storeId) {
+        // Just clear the visual state (last_visit = null or old date)
+        // We do NOT delete the log, as per user request logs accumulate.
+        // But if they just toggled it ON and then OFF immediately, maybe they want to undo?
+        // User said: "Unchecking it likely clears the current state".
+        // And "Every time checking... records visit".
+        // So clearing just updates the store state.
+        const { error } = await supabase
+            .from('stores')
+            .update({ last_visit: null, visited: false })
+            .eq('id', storeId)
+
         if (error) throw error
+    },
+
+    // Legacy toggle kept for compatibility if called elsewhere, but we should use log/clear now.
+    async toggleVisit(id, visited) {
+        if (visited) {
+            return this.logVisit(id)
+        } else {
+            return this.clearVisit(id)
+        }
     },
 
     async resetDailyVisits() {
@@ -282,6 +329,19 @@ export const db = {
             });
             const { error } = await supabase.from('visits').upsert(visitsToInsert, { onConflict: 'id' });
             if (error) console.error('Error importing visits:', error);
+        }
+
+        // 6. Visit Logs
+        if (data.visit_logs && data.visit_logs.length > 0) {
+             const logsToInsert = data.visit_logs.map(l => {
+                 return {
+                     id: l.id,
+                     store_id: l.store_id || l.storeId,
+                     visited_at: l.visited_at || l.visitedAt,
+                 };
+             });
+             const { error } = await supabase.from('visit_logs').upsert(logsToInsert, { onConflict: 'id' });
+             if (error) console.error('Error importing visit logs:', error);
         }
     }
 }

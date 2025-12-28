@@ -428,6 +428,21 @@ export const ui = {
         }
 
         filteredStores.forEach(store => {
+            // Determine Visited State (7-day window)
+            let isVisited = false;
+            if (store.last_visit) {
+                const lastVisitDate = new Date(store.last_visit);
+                const now = new Date();
+                const diffTime = Math.abs(now - lastVisitDate);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                if (diffDays <= 7) {
+                    isVisited = true;
+                }
+            } else if (store.visited) {
+                 // Fallback for legacy data
+                 isVisited = true;
+            }
+
             // Day Badge Logic
             let dayBadge = ''
             if (store.visit_days && store.visit_days.length > 0) {
@@ -451,7 +466,7 @@ export const ui = {
             const card = document.createElement('div')
             card.className = 'col-md-6 col-lg-4'
             card.innerHTML = `
-                <div class="card h-100 store-card ${store.visited ? 'visited' : ''}">
+                <div class="card h-100 store-card ${isVisited ? 'visited' : ''}">
                     <div class="card-body p-2 d-flex flex-column">
                         <!-- Header -->
                         <div class="d-flex justify-content-between align-items-start mb-2 fixed-height-header">
@@ -463,7 +478,7 @@ export const ui = {
                             </div>
                             <div class="text-center">
                                  <div class="form-check form-switch d-inline-block">
-                                     <input class="form-check-input" type="checkbox" ${store.visited ? 'checked' : ''} data-action="toggle-visit" data-store-id="${store.id}" style="width: 2.5em; height: 1.25em;">
+                                     <input class="form-check-input" type="checkbox" ${isVisited ? 'checked' : ''} data-action="toggle-visit" data-store-id="${store.id}" style="width: 2.5em; height: 1.25em;">
                                  </div>
                             </div>
                         </div>
@@ -508,7 +523,7 @@ export const ui = {
                             <button class="btn btn-outline-info btn-action-secondary flex-grow-1 d-flex align-items-center justify-content-center" data-action="show-details" data-store-id="${store.id}" title="جزئیات بیشتر">
                                 <i class="bi bi-info-circle fs-5"></i>
                             </button>
-                             <button class="btn btn-outline-secondary btn-action-secondary flex-grow-1 d-flex align-items-center justify-content-center" data-action="new-visit" data-store-id="${store.id}" title="ثبت ویزیت">
+                             <button class="btn btn-outline-secondary btn-action-secondary flex-grow-1 d-flex align-items-center justify-content-center" data-action="new-visit" data-store-id="${store.id}" title="قرار قبلی">
                                 <i class="bi bi-calendar4 fs-5"></i>
                             </button>
                             <button class="btn btn-primary btn-action-primary flex-grow-1 d-flex align-items-center justify-content-center" data-action="new-order" data-store-id="${store.id}" title="ثبت سفارش">
@@ -792,10 +807,24 @@ export const ui = {
         if (action === 'toggle-visit') {
             const id = btn.dataset.storeId
             const visited = btn.checked
-            await db.toggleVisit(id, visited)
-            // Update local state without full reload
-            const store = this.data.stores.find(s => s.id == id)
-            if (store) store.visited = visited
+            if (visited) {
+                await db.logVisit(id)
+                // Update local state
+                const store = this.data.stores.find(s => s.id == id)
+                if (store) {
+                    store.last_visit = new Date().toISOString()
+                    store.visited = true
+                    // Also append a fake log entry for immediate UI update if needed?
+                    // We re-fetch logs usually on details open, so just updating last_visit is enough for card UI.
+                }
+            } else {
+                await db.clearVisit(id)
+                const store = this.data.stores.find(s => s.id == id)
+                if (store) {
+                    store.last_visit = null
+                    store.visited = false
+                }
+            }
             this.renderStores()
         }
         else if (action === 'delete-region') {
@@ -1102,6 +1131,40 @@ create policy "Users can delete their own visits"
         } else {
             ordersList.innerHTML = '<div class="text-center text-muted py-3 small">سفارشی ثبت نشده است</div>'
         }
+
+        // Render Visit Logs
+        const logsContainer = document.getElementById('detailVisitLogs') || document.createElement('div');
+        if (!document.getElementById('detailVisitLogs')) {
+            // If container doesn't exist, append it. Ideally it should be in HTML, but we can inject it.
+            // Let's check index.html first. We don't have access right now easily in this diff block context,
+            // but assuming we need to add it dynamically or rely on it being there.
+            // I'll create it dynamically if missing, after ordersList.
+            logsContainer.id = 'detailVisitLogs';
+            logsContainer.className = 'mt-3 pt-3 border-top';
+            ordersList.parentNode.appendChild(logsContainer);
+        }
+
+        logsContainer.innerHTML = '<h6 class="mb-2 fw-bold text-secondary">تاریخچه ویزیت‌ها</h6>';
+        const logsList = document.createElement('div');
+        logsList.className = 'list-group list-group-flush small';
+
+        if (store.visit_logs && store.visit_logs.length > 0) {
+             store.visit_logs.forEach(log => {
+                 const logDate = new Date(log.visited_at);
+                 const jalaaliDate = dateUtils.toJalaali(logDate);
+                 // Format time manually HH:MM
+                 const timeStr = logDate.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' });
+
+                 const item = document.createElement('div');
+                 item.className = 'list-group-item px-0 d-flex justify-content-between text-muted';
+                 item.innerHTML = `<span>${jalaaliDate}</span> <span>${timeStr}</span>`;
+                 logsList.appendChild(item);
+             });
+        } else {
+             logsList.innerHTML = '<div class="text-center text-muted py-2 small">تاریخچه‌ای موجود نیست</div>';
+        }
+        logsContainer.appendChild(logsList);
+
 
         // Attach local listener for modal buttons because they might be outside the main container flow logic if needed,
         // but since `document.body` listener captures everything, it should be fine.
