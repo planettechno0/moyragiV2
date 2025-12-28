@@ -143,18 +143,11 @@ export const backupToExcel = async (data) => {
     XLSX.writeFile(workbook, `Moyragi_Backup_${new Date().toISOString().slice(0,10)}.xlsx`);
 };
 
-export const parseExcelBackup = (file) => {
-    return new Promise(async (resolve, reject) => {
-        // Note: FileReader onload is sync but we need async await.
-        // Better to load lib first before reading file.
-        let XLSX;
-        try {
-            XLSX = await loadXLSX();
-        } catch (err) {
-            reject(err);
-            return;
-        }
+export const parseExcelBackup = async (file) => {
+    // Load lib first
+    const XLSX = await loadXLSX();
 
+    return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = (e) => {
             try {
