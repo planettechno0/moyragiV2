@@ -1,6 +1,21 @@
-import * as XLSX from 'https://cdn.sheetjs.com/xlsx-latest/package/xlsx.mjs';
+const XLSX_URL = 'https://cdn.sheetjs.com/xlsx-latest/package/xlsx.mjs';
 
-export const exportToExcel = (stores) => {
+// Lazy load helper
+let xlsxModule = null;
+async function loadXLSX() {
+    if (xlsxModule) return xlsxModule;
+    try {
+        xlsxModule = await import(XLSX_URL);
+        return xlsxModule;
+    } catch (e) {
+        console.error('Failed to load XLSX library:', e);
+        throw new Error('خطا در بارگذاری کتابخانه اکسل. اینترنت خود را بررسی کنید.');
+    }
+}
+
+export const exportToExcel = async (stores) => {
+    const XLSX = await loadXLSX();
+
     // Flatten data for export
     const rows = [];
 
@@ -60,7 +75,8 @@ export const exportToExcel = (stores) => {
 
 // --- Full Backup & Restore ---
 
-export const backupToExcel = (data) => {
+export const backupToExcel = async (data) => {
+    const XLSX = await loadXLSX();
     const workbook = XLSX.utils.book_new();
 
     // 1. Regions
@@ -128,7 +144,17 @@ export const backupToExcel = (data) => {
 };
 
 export const parseExcelBackup = (file) => {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
+        // Note: FileReader onload is sync but we need async await.
+        // Better to load lib first before reading file.
+        let XLSX;
+        try {
+            XLSX = await loadXLSX();
+        } catch (err) {
+            reject(err);
+            return;
+        }
+
         const reader = new FileReader();
         reader.onload = (e) => {
             try {
