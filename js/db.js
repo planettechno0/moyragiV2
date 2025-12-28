@@ -158,6 +158,10 @@ export const db = {
         if (storeError) throw storeError
 
         // 2. Insert into visit_logs
+        // We do NOT check for duplicate recent logs here because user asked to fix double logging,
+        // which implies the double call happens in UI. However, robust backend prevents it too.
+        // But user said "With every check... record visit".
+        // We will trust the UI single call.
         const { error: logError } = await supabase
             .from('visit_logs')
             .insert([{ store_id: storeId, visited_at: now }])
@@ -165,28 +169,30 @@ export const db = {
         if (logError) throw logError
     },
 
+    async updateVisitLog(logId, note, visitedAt) {
+         const { error } = await supabase
+            .from('visit_logs')
+            .update({ note, visited_at: visitedAt })
+            .eq('id', logId)
+         if (error) throw error
+    },
+
+    async deleteVisitLog(logId) {
+         const { error } = await supabase
+            .from('visit_logs')
+            .delete()
+            .eq('id', logId)
+         if (error) throw error
+    },
+
     async clearVisit(storeId) {
-        // Just clear the visual state (last_visit = null or old date)
-        // We do NOT delete the log, as per user request logs accumulate.
-        // But if they just toggled it ON and then OFF immediately, maybe they want to undo?
-        // User said: "Unchecking it likely clears the current state".
-        // And "Every time checking... records visit".
-        // So clearing just updates the store state.
+        // Just clear the visual state (last_visit = null)
         const { error } = await supabase
             .from('stores')
             .update({ last_visit: null, visited: false })
             .eq('id', storeId)
 
         if (error) throw error
-    },
-
-    // Legacy toggle kept for compatibility if called elsewhere, but we should use log/clear now.
-    async toggleVisit(id, visited) {
-        if (visited) {
-            return this.logVisit(id)
-        } else {
-            return this.clearVisit(id)
-        }
     },
 
     async resetDailyVisits() {

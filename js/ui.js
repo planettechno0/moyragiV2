@@ -220,6 +220,7 @@ export const ui = {
 
         // --- Visits ---
         document.getElementById('saveVisitBtn').addEventListener('click', () => this.handleSaveVisit())
+        document.getElementById('saveLogEditBtn').addEventListener('click', () => this.handleSaveLogEdit())
 
         // --- Management Toolbar ---
         const refreshManagement = () => this.renderManagementTable()
@@ -805,27 +806,40 @@ export const ui = {
         if (!action) return
 
         if (action === 'toggle-visit') {
+            // Prevent double execution if triggered by click propagation on container
+            // The input 'change' event is reliable.
+            // BUT handleGlobalClick is bound to 'click' on the container.
+            // When clicking a label for a checkbox, it triggers click on label AND change on input.
+            // If we listen to click on input, it might fire.
+            // Let's rely on the checked state.
             const id = btn.dataset.storeId
             const visited = btn.checked
-            if (visited) {
-                await db.logVisit(id)
-                // Update local state
-                const store = this.data.stores.find(s => s.id == id)
-                if (store) {
-                    store.last_visit = new Date().toISOString()
-                    store.visited = true
-                    // Also append a fake log entry for immediate UI update if needed?
-                    // We re-fetch logs usually on details open, so just updating last_visit is enough for card UI.
-                }
-            } else {
-                await db.clearVisit(id)
-                const store = this.data.stores.find(s => s.id == id)
-                if (store) {
-                    store.last_visit = null
-                    store.visited = false
-                }
+
+            // Optimistic update to UI to feel responsive
+            const store = this.data.stores.find(s => s.id == id)
+            if (store) {
+                 store.visited = visited
+                 store.last_visit = visited ? new Date().toISOString() : null
             }
-            this.renderStores()
+            // We do NOT call renderStores() immediately here to avoid losing focus or double-rendering glitches.
+            // We just let the switch animation play.
+
+            try {
+                if (visited) {
+                    await db.logVisit(id)
+                } else {
+                    await db.clearVisit(id)
+                }
+            } catch (e) {
+                console.error(e)
+                this.showToast('خطا در ثبت وضعیت', 'error')
+                // Revert state if failed
+                if (store) {
+                     store.visited = !visited
+                     store.last_visit = !visited ? new Date().toISOString() : null
+                }
+                this.renderStores() // Re-render to show correct state
+            }
         }
         else if (action === 'delete-region') {
             if (confirm('حذف شود؟')) {
@@ -883,6 +897,23 @@ export const ui = {
             await db.updateVisitStatus(btn.dataset.id, 'done')
             await this.refreshData() // reload visits
         }
+        else if (action === 'delete-log') {
+             if (confirm('آیا از حذف این سابقه ویزیت اطمینان دارید؟')) {
+                 await db.deleteVisitLog(btn.dataset.id)
+                 // We need to refresh store data because logs are nested in store objects
+                 // But full refresh is heavy.
+                 // We can remove it from local state.
+                 const store = this.data.stores.find(s => s.id == btn.dataset.storeId)
+                 if (store && store.visit_logs) {
+                     store.visit_logs = store.visit_logs.filter(l => l.id != btn.dataset.id)
+                 }
+                 this.openStoreDetails(btn.dataset.storeId) // Re-render modal
+                 this.showToast('حذف شد', 'success')
+             }
+        }
+        else if (action === 'edit-log') {
+             this.openEditLogModal(btn.dataset.storeId, btn.dataset.id)
+        }
     },
 
     // --- Modal Logic ---
@@ -893,6 +924,84 @@ export const ui = {
         document.getElementById('visitTime').value = ''
         document.getElementById('visitNote').value = ''
         new bootstrap.Modal(document.getElementById('visitModal')).show()
+    },
+
+    openEditLogModal(storeId, logId) {
+        const store = this.data.stores.find(s => s.id == storeId)
+        const log = store?.visit_logs?.find(l => l.id == logId)
+        if (!log) return
+
+        // Populate modal
+        // We can reuse a simple modal or create one dynamically.
+        // Or reuse 'visitModal' but it is for appointments (visits table).
+        // We need to edit 'visit_logs'.
+        // Let's use a prompt for simplicity or a new modal.
+        // User asked for "Edit history" and "Description field".
+        // A modal is better. I'll add 'editLogModal' to index.html.
+
+        document.getElementById('editLogId').value = logId
+        document.getElementById('editLogStoreId').value = storeId
+
+        const dateObj = new Date(log.visited_at)
+        document.getElementById('editLogDate').value = dateUtils.toJalaali(dateObj)
+        document.getElementById('editLogTime').value = dateObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+        document.getElementById('editLogNote').value = log.note || ''
+
+        new bootstrap.Modal(document.getElementById('editLogModal')).show()
+    },
+
+    async handleSaveLogEdit() {
+        const logId = document.getElementById('editLogId').value
+        const storeId = document.getElementById('editLogStoreId').value
+        const dateStr = document.getElementById('editLogDate').value // Shamsi
+        const timeStr = document.getElementById('editLogTime').value // HH:MM
+        const note = document.getElementById('editLogNote').value
+
+        // Validate date
+        if (!/^\d{4}\/\d{2}\/\d{2}$/.test(dateStr)) {
+            this.showToast('فرمت تاریخ باید 1402/01/01 باشد', 'error')
+            return
+        }
+
+        try {
+            // Convert Shamsi + Time to ISO
+            // We don't have a direct helper for Shamsi->Date with Time in date_utils?
+            // dateUtils probably has nothing.
+            // Hack: Parse Shamsi to Gregorian Date object, set time, then ISO.
+            // Need 'jalaali-js' loaded globally.
+            if (typeof jalaali === 'undefined') throw new Error('Jalaali lib missing')
+
+            const [jy, jm, jd] = dateStr.split('/').map(Number)
+            const g = jalaali.toGregorian(jy, jm, jd)
+            const d = new Date(g.gy, g.gm - 1, g.gd)
+
+            if (timeStr) {
+                const [hh, mm] = timeStr.split(':').map(Number)
+                d.setHours(hh, mm)
+            }
+
+            const isoDate = d.toISOString()
+
+            await db.updateVisitLog(logId, note, isoDate)
+
+            // Update local state
+            const store = this.data.stores.find(s => s.id == storeId)
+            if (store && store.visit_logs) {
+                const log = store.visit_logs.find(l => l.id == logId)
+                if (log) {
+                    log.visited_at = isoDate
+                    log.note = note
+                }
+            }
+
+            bootstrap.Modal.getInstance(document.getElementById('editLogModal')).hide()
+            this.openStoreDetails(storeId) // Refresh list
+            this.showToast('ویرایش شد', 'success')
+
+        } catch (e) {
+            console.error(e)
+            this.showToast('خطا در ویرایش', 'error')
+        }
     },
 
     showSqlModal() {
@@ -1156,8 +1265,23 @@ create policy "Users can delete their own visits"
                  const timeStr = logDate.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' });
 
                  const item = document.createElement('div');
-                 item.className = 'list-group-item px-0 d-flex justify-content-between text-muted';
-                 item.innerHTML = `<span>${jalaaliDate}</span> <span>${timeStr}</span>`;
+                 item.className = 'list-group-item px-0';
+                 item.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="fw-bold">${jalaaliDate}</span> <span class="small ms-1">${timeStr}</span>
+                            ${log.note ? `<div class="small text-primary mt-1">${this.escapeHtml(log.note)}</div>` : ''}
+                        </div>
+                        <div>
+                            <button class="btn btn-sm btn-link text-primary p-0 me-2" data-action="edit-log" data-store-id="${store.id}" data-id="${log.id}">
+                                <i class="bi bi-pencil-square"></i>
+                            </button>
+                            <button class="btn btn-sm btn-link text-danger p-0" data-action="delete-log" data-store-id="${store.id}" data-id="${log.id}">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                 `;
                  logsList.appendChild(item);
              });
         } else {

@@ -651,6 +651,38 @@
         </div>
     </div>
 
+    <!-- Modal: Edit Visit Log -->
+    <div class="modal fade" id="editLogModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">ویرایش تاریخچه ویزیت</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="editLogId">
+                    <input type="hidden" id="editLogStoreId">
+                    <div class="mb-3">
+                        <label class="form-label">تاریخ (شمسی)</label>
+                        <input type="text" class="form-control" id="editLogDate" placeholder="1402/01/01" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">ساعت</label>
+                        <input type="time" class="form-control" id="editLogTime" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">توضیحات</label>
+                        <textarea class="form-control" id="editLogNote" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">لغو</button>
+                    <button type="button" class="btn btn-primary" id="saveLogEditBtn">ذخیره تغییرات</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal: SQL Script -->
     <div class="modal fade" id="sqlModal" tabindex="-1">
         <div class="modal-dialog">
