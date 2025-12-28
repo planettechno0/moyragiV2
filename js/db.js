@@ -148,25 +148,48 @@ export const db = {
     },
 
     async logVisit(storeId) {
+        const now = new Date();
+        const nowISO = now.toISOString();
+
         // 1. Update store's last_visit timestamp
-        const now = new Date().toISOString()
         const { error: storeError } = await supabase
             .from('stores')
-            .update({ last_visit: now, visited: true }) // Keep visited=true for backward compat/legacy state
+            .update({ last_visit: nowISO, visited: true })
             .eq('id', storeId)
 
         if (storeError) throw storeError
 
-        // 2. Insert into visit_logs
-        // We do NOT check for duplicate recent logs here because user asked to fix double logging,
-        // which implies the double call happens in UI. However, robust backend prevents it too.
-        // But user said "With every check... record visit".
-        // We will trust the UI single call.
-        const { error: logError } = await supabase
-            .from('visit_logs')
-            .insert([{ store_id: storeId, visited_at: now }])
+        // 2. Insert or Update visit_logs (One per day)
+        const todayStart = new Date(now);
+        todayStart.setHours(0, 0, 0, 0);
+        const todayEnd = new Date(now);
+        todayEnd.setHours(23, 59, 59, 999);
 
-        if (logError) throw logError
+        // Check for existing log today
+        const { data: existingLogs, error: fetchError } = await supabase
+            .from('visit_logs')
+            .select('id')
+            .eq('store_id', storeId)
+            .gte('visited_at', todayStart.toISOString())
+            .lte('visited_at', todayEnd.toISOString())
+            .limit(1);
+
+        if (fetchError) throw fetchError;
+
+        if (existingLogs && existingLogs.length > 0) {
+            // Update existing
+            const { error: updateError } = await supabase
+                .from('visit_logs')
+                .update({ visited_at: nowISO })
+                .eq('id', existingLogs[0].id);
+            if (updateError) throw updateError;
+        } else {
+            // Insert new
+            const { error: insertError } = await supabase
+                .from('visit_logs')
+                .insert([{ store_id: storeId, visited_at: nowISO }]);
+            if (insertError) throw insertError;
+        }
     },
 
     async updateVisitLog(logId, note, visitedAt) {
@@ -272,14 +295,32 @@ export const db = {
         // We use 'upsert' to insert or update based on ID.
 
         // 1. Regions
+        // Fix: Deduplicate by name if ID is missing (legacy backup)
         if (data.regions && data.regions.length > 0) {
-            const { error } = await supabase.from('regions').upsert(data.regions, { onConflict: 'id' });
+            const existing = await this.getRegions();
+            const regionsToUpsert = data.regions.map(r => {
+                const match = existing.find(e => e.name === r.name);
+                if (match) {
+                    return { ...r, id: match.id };
+                }
+                return r;
+            });
+            const { error } = await supabase.from('regions').upsert(regionsToUpsert, { onConflict: 'id' });
             if (error) console.error('Error importing regions:', error);
         }
 
         // 2. Products
+        // Fix: Deduplicate by name if ID is missing
         if (data.products && data.products.length > 0) {
-            const { error } = await supabase.from('products').upsert(data.products, { onConflict: 'id' });
+            const existing = await this.getProducts();
+            const productsToUpsert = data.products.map(p => {
+                const match = existing.find(e => e.name === p.name);
+                if (match) {
+                    return { ...p, id: match.id };
+                }
+                return p;
+            });
+            const { error } = await supabase.from('products').upsert(productsToUpsert, { onConflict: 'id' });
             if (error) console.error('Error importing products:', error);
         }
 
