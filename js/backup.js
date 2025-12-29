@@ -1,35 +1,35 @@
+import { db } from './db.js'
+
 // JSON Backup & Restore Utilities
 
-export const backupToJSON = (data) => {
-    // We export the full data object
-    const exportData = {
-        regions: data.regions || [],
-        products: data.products || [],
-            stores: data.stores || [], // stores contain nested orders and visit_logs
-            visits: data.visits || [],
-            visit_logs: [] // We might want to export all logs separately or nested.
-            // Currently stores have nested visit_logs in db.getStores() response.
-            // If they are nested in 'stores', JSON stringify handles it.
-    };
+export const backupToJSON = async (data) => {
+    // We export the full data object from DB to ensure completeness
+    try {
+        const fullData = await db.getAllData();
 
-    // In db.js getStores() returns stores with orders nested.
-    // If we want a clean relational dump, we could separate them, but JSON handles nesting fine.
-    // However, for consistency with Supabase import (which might expect flat tables),
-    // let's check if we should flatten.
-    // The previous app used nested structure. Let's keep nested for JSON to match user "Old Program" expectation
-    // and we will handle the parsing/flattening during import.
+        const exportData = {
+            regions: fullData.regions || [],
+            products: fullData.products || [],
+            stores: fullData.stores || [],
+            visits: fullData.visits || [],
+            visit_logs: fullData.visit_logs || []
+        };
 
-    const jsonStr = JSON.stringify(exportData, null, 2);
-    const blob = new Blob([jsonStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
+        const jsonStr = JSON.stringify(exportData, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
 
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Moyragi_Backup_${new Date().toISOString().slice(0,10)}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Moyragi_Backup_${new Date().toISOString().slice(0,10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    } catch (e) {
+        console.error("Backup failed", e);
+        alert("خطا در تهیه نسخه پشتیبان: " + e.message);
+    }
 };
 
 export const parseJSONBackup = (file) => {
