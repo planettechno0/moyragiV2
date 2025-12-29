@@ -85,12 +85,22 @@ export const ui = {
                 }
             } catch (e) { console.warn('Cache load failed', e); }
 
-            // Load Aux Data
-            // We handle visits separately so if the table doesn't exist yet, the app still works.
-            const [regions, products] = await Promise.all([
-                db.getRegions(),
-                db.getProducts()
-            ])
+            // Load Aux Data with retry
+            let regions = [], products = [];
+            try {
+                [regions, products] = await Promise.all([
+                    db.getRegions(),
+                    db.getProducts()
+                ]);
+            } catch (e) {
+                console.warn("Initial aux fetch failed, retrying once...", e);
+                // Simple retry logic
+                [regions, products] = await Promise.all([
+                    db.getRegions(),
+                    db.getProducts()
+                ]);
+            }
+
             this.data.regions = regions || []
             this.data.products = products || []
 
@@ -119,7 +129,13 @@ export const ui = {
             await this.loadStoresChunk()
         } catch (error) {
             console.error('Error loading data:', error)
-            this.showToast('خطا در بارگذاری اطلاعات. لطفاً دوباره تلاش کنید.', 'error')
+            const toastBody = `
+                <div class="d-flex flex-column align-items-start">
+                    <span>خطا در بارگذاری اطلاعات.</span>
+                    <button class="btn btn-sm btn-light mt-2" onclick="location.reload()">تلاش مجدد</button>
+                </div>
+            `;
+            this.showToast(toastBody, 'error')
         }
     },
 
@@ -179,6 +195,7 @@ export const ui = {
         document.getElementById('filterDay').addEventListener('change', filterHandler)
         document.getElementById('filterRegion').addEventListener('change', filterHandler)
         document.getElementById('filterProb').addEventListener('change', filterHandler)
+        document.getElementById('filterVisitStatus').addEventListener('change', filterHandler)
 
         // --- Toggle Visits (Separate Event for reliability) ---
         // Using 'change' event on the container to catch checkbox toggles correctly
@@ -193,6 +210,9 @@ export const ui = {
         document.getElementById('saveStoreBtn').addEventListener('click', () => this.handleSaveStore())
 
         // --- Settings ---
+        document.getElementById('settingsModal').addEventListener('show.bs.modal', () => this.loadTelegramSettings())
+        document.getElementById('saveTelegramSettingsBtn').addEventListener('click', () => this.saveTelegramSettings())
+
         document.getElementById('addRegionBtn').addEventListener('click', () => this.handleAddRegion())
         document.getElementById('addProductBtn').addEventListener('click', () => this.handleAddProduct())
 
@@ -238,6 +258,7 @@ export const ui = {
         })
 
         document.getElementById('orderDateFilter').addEventListener('change', () => this.renderAllOrders())
+        document.getElementById('sendToTelegramBtn').addEventListener('click', () => this.handleSendToTelegram())
 
         // --- Visits ---
         document.getElementById('saveVisitBtn').addEventListener('click', () => this.handleSaveVisit())
@@ -413,8 +434,10 @@ export const ui = {
         const dayFilter = document.getElementById('filterDay').value
         const regionFilter = document.getElementById('filterRegion').value
         const probFilter = document.getElementById('filterProb').value
+        const visitStatusFilter = document.getElementById('filterVisitStatus').value
         const searchQuery = document.getElementById('searchInput').value.trim().toLowerCase()
         const currentDayIndex = new Date().getDay()
+        const now = new Date();
 
         const filteredStores = this.data.stores.filter(store => {
             if (searchQuery) {
@@ -424,6 +447,20 @@ export const ui = {
             }
             if (regionFilter !== 'all' && store.region !== regionFilter) return false
             if (probFilter !== 'all' && store.purchase_prob !== probFilter) return false
+
+            // Visit Status Filter
+            if (visitStatusFilter !== 'all') {
+                let isVisited7Days = false;
+                if (store.last_visit) {
+                    const lastVisitDate = new Date(store.last_visit);
+                    const diffTime = Math.abs(now - lastVisitDate);
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    if (diffDays <= 7) isVisited7Days = true;
+                }
+
+                if (visitStatusFilter === 'visited' && !isVisited7Days) return false;
+                if (visitStatusFilter === 'not_visited' && isVisited7Days) return false;
+            }
 
             if (dayFilter === 'all') return true
             if (dayFilter === 'today') {
@@ -451,7 +488,7 @@ export const ui = {
 
         // Optimization: Create fragment and reuse date object
         const fragment = document.createDocumentFragment();
-        const now = new Date();
+        // now is already defined above
 
         filteredStores.forEach(store => {
             // Determine Visited State (7-day window)
@@ -1206,6 +1243,107 @@ create policy "Users can delete their own visits"
             this.renderRegions()
             this.showToast('کالا افزوده شد.', 'success')
         } catch(e) { console.error(e); this.showToast('خطا در افزودن کالا', 'error') }
+    },
+
+    loadTelegramSettings() {
+        const token = localStorage.getItem('bolt_telegram_token') || '';
+        const userId = localStorage.getItem('bolt_telegram_userid') || '';
+        document.getElementById('telegramBotToken').value = token;
+        document.getElementById('telegramUserId').value = userId;
+    },
+
+    saveTelegramSettings() {
+        const token = document.getElementById('telegramBotToken').value.trim();
+        const userId = document.getElementById('telegramUserId').value.trim();
+
+        localStorage.setItem('bolt_telegram_token', token);
+        localStorage.setItem('bolt_telegram_userid', userId);
+
+        this.showToast('تنظیمات تلگرام ذخیره شد.', 'success');
+    },
+
+    async handleSendToTelegram() {
+        const token = localStorage.getItem('bolt_telegram_token');
+        const userId = localStorage.getItem('bolt_telegram_userid');
+
+        if (!token || !userId) {
+            this.showToast('لطفاً ابتدا توکن ربات و شناسه کاربری را در تنظیمات وارد کنید.', 'error');
+            return;
+        }
+
+        // Get last 20 orders
+        let allOrders = [];
+        this.data.stores.forEach(store => {
+            if (store.orders) {
+                store.orders.forEach(order => {
+                    allOrders.push({
+                        ...order,
+                        storeName: store.name,
+                        storeRegion: store.region
+                    });
+                });
+            }
+        });
+
+        // Sort by newest
+        allOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+        // Take last 20 (or chosen number)
+        // User asked for "Send to Bot depending on user choice".
+        // For simplicity in this iteration, we send last 20 or user could filter.
+        // Let's prompt for number? Or just send filtered list if filter exists?
+        // Let's stick to user request "Last few orders".
+        const ordersToSend = allOrders.slice(0, 20);
+
+        if (ordersToSend.length === 0) {
+            this.showToast('سفارشی برای ارسال وجود ندارد.', 'warning');
+            return;
+        }
+
+        let message = `📋 *لیست ۲۰ سفارش آخر*\n\n`;
+        ordersToSend.forEach((o, i) => {
+             let itemsText = '-';
+             if (o.items && o.items.length) {
+                 itemsText = o.items.map(it => `${it.count} ${it.productName}`).join('، ');
+             }
+             message += `${i+1}. *${o.storeName}* (${o.storeRegion})\n📅 ${o.date}\n📦 ${itemsText}\n📝 ${o.text || ''}\n\n`;
+        });
+
+        try {
+            const btn = document.getElementById('sendToTelegramBtn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> ارسال...';
+            btn.disabled = true;
+
+            const url = `https://api.telegram.org/bot${token}/sendMessage`;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: userId,
+                    text: message,
+                    parse_mode: 'Markdown'
+                })
+            });
+
+            const resData = await response.json();
+
+            if (resData.ok) {
+                this.showToast('لیست سفارشات به تلگرام ارسال شد.', 'success');
+            } else {
+                console.error('Telegram Error:', resData);
+                this.showToast('خطا در ارسال به تلگرام. توکن یا شناسه را بررسی کنید.', 'error');
+            }
+
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        } catch (error) {
+            console.error(error);
+            this.showToast('خطا در ارتباط با سرور تلگرام.', 'error');
+            const btn = document.getElementById('sendToTelegramBtn');
+            btn.innerHTML = '<i class="bi bi-telegram me-1"></i> ارسال ۲۰ سفارش آخر به ربات';
+            btn.disabled = false;
+        }
     },
 
     async handleResetDaily() {

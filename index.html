@@ -140,6 +140,14 @@
                         </select>
                     </div>
                     <div class="col-md-3">
+                        <label class="form-label">وضعیت ویزیت (7 روز)</label>
+                        <select class="form-select" id="filterVisitStatus">
+                            <option value="all">همه</option>
+                            <option value="visited">ویزیت شده</option>
+                            <option value="not_visited">ویزیت نشده</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
                         <label class="form-label">احتمال خرید</label>
                         <select class="form-select" id="filterProb">
                             <option value="all">همه</option>
@@ -335,10 +343,15 @@
                     </button>
                 </div>
 
-                <div class="row mb-3">
+                <div class="row mb-3 align-items-end">
                     <div class="col-md-4">
                         <label class="form-label small text-muted">فیلتر تاریخ (شمسی)</label>
                         <input type="text" class="form-control" id="orderDateFilter" placeholder="1402/01/01">
+                    </div>
+                    <div class="col-md-8 text-end">
+                         <button class="btn btn-info text-white" id="sendToTelegramBtn">
+                            <i class="bi bi-telegram me-1"></i> ارسال ۲۰ سفارش آخر به ربات
+                        </button>
                     </div>
                 </div>
 
@@ -414,6 +427,21 @@
                         <ul class="list-group mb-4" id="productList">
                             <!-- Populated by JS -->
                         </ul>
+
+                        <hr>
+
+                        <h6 class="fw-bold mb-3">تنظیمات تلگرام</h6>
+                        <div class="mb-3">
+                            <label class="form-label small">توکن ربات (Bot Token)</label>
+                            <input type="text" class="form-control text-start" id="telegramBotToken" dir="ltr" placeholder="123456789:ABC...">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small">شناسه کاربر (User ID)</label>
+                            <input type="text" class="form-control text-start" id="telegramUserId" dir="ltr" placeholder="12345678">
+                        </div>
+                        <div class="d-grid mb-3">
+                            <button class="btn btn-primary btn-sm" id="saveTelegramSettingsBtn">ذخیره تنظیمات تلگرام</button>
+                        </div>
 
                         <hr>
 

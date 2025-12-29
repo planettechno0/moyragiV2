@@ -8,19 +8,46 @@ export const db = {
         return data
     },
 
-    async getAllStores() {
-        // Fetch all stores (used for Management "Load All")
-        // Warning: This could be heavy if thousands of records.
-        // Supabase limits rows returned (usually 1000).
-        // For simplicity, we just ask for a large range or standard select.
-        const { data, error } = await supabase
-            .from('stores')
-            .select(`*, orders (*)`)
-            .order('created_at', { ascending: false })
-            // Default limit is usually 1000. If more needed, we need loop.
-            // Let's assume < 1000 for this user request context or handle basic case.
+    async fetchAll(table, queryModifier = null) {
+        // Helper to fetch all rows by chunking
+        let allData = [];
+        let page = 0;
+        const pageSize = 1000; // Supabase default limit
+        let hasMore = true;
 
-        if (error) throw error
+        while (hasMore) {
+            const from = page * pageSize;
+            const to = from + pageSize - 1;
+
+            let query = supabase.from(table).select('*').range(from, to);
+
+            // Allow applying custom modifiers like nested selects or ordering
+            if (queryModifier) {
+                query = queryModifier(query);
+            }
+
+            const { data, error } = await query;
+
+            if (error) throw error;
+
+            if (data.length > 0) {
+                allData = [...allData, ...data];
+                if (data.length < pageSize) {
+                    hasMore = false;
+                } else {
+                    page++;
+                }
+            } else {
+                hasMore = false;
+            }
+        }
+        return allData;
+    },
+
+    async getAllStores() {
+        // Fetch all stores using chunking to bypass limit
+        const modifier = (query) => query.select('*, orders (*)').order('created_at', { ascending: false });
+        const data = await this.fetchAll('stores', modifier);
 
         // Sort orders
         if (data) {
@@ -30,7 +57,43 @@ export const db = {
                 }
             })
         }
-        return data
+        return data;
+    },
+
+    async getAllData() {
+        // Fetch EVERYTHING for backup
+        const [regions, products, stores, orders, visits, visit_logs] = await Promise.all([
+            this.fetchAll('regions'),
+            this.fetchAll('products'),
+            this.fetchAll('stores'), // Note: this fetches stores without nested to be raw for backup?
+                                     // Actually backup expects nested structure for current JSON format,
+                                     // OR flat structure for strict relational backup.
+                                     // Existing 'getAllStores' returns nested.
+                                     // Let's fetch flat tables and let backup logic decide,
+                                     // OR reuse getAllStores logic if backup expects nesting.
+                                     // Backup.js expects: data.stores (with nested?), data.orders (flat?), data.visits.
+                                     // Let's look at backup.js: it exports data.stores (which has orders nested).
+                                     // BUT it also exports data.orders (flat) if we populate it.
+                                     // To be safe and complete, let's fetch 'stores' with 'orders' and 'visit_logs' nested,
+                                     // just like 'getStores' but for all.
+            // Actually, simply fetching everything flat is safer for a "Full Backup".
+            // But 'backupToJSON' logic in 'js/backup.js' dumps 'data.stores'.
+            // If we change 'data.stores' to be flat, we break nested expectations.
+            // So we should use 'getAllStores' which returns nested.
+            this.getAllStores(),
+            this.fetchAll('orders'), // Also fetch flat orders just in case
+            this.fetchAll('visits'),
+            this.fetchAll('visit_logs')
+        ]);
+
+        return {
+            regions,
+            products,
+            stores,
+            orders, // Redundant if inside stores, but good for completeness
+            visits,
+            visit_logs
+        };
     },
 
     async addRegion(name) {
