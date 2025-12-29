@@ -1,6 +1,6 @@
 import { db } from './db.js'
 import { auth } from './auth.js'
-import { exportToExcel, backupToExcel, parseExcelBackup } from './excel.js'
+import { exportToExcel, backupToExcel, parseExcelBackup, getBackupBlob } from './excel.js'
 import { backupToJSON, parseJSONBackup } from './backup.js'
 import { dateUtils } from './date_utils.js'
 
@@ -224,8 +224,13 @@ export const ui = {
         document.getElementById('importJsonInput').addEventListener('change', (e) => this.handleImport(e, 'json'))
 
         // Backups - Excel
-        document.getElementById('backupExcelBtn').addEventListener('click', () => backupToExcel(this.data))
+        document.getElementById('backupExcelBtn').addEventListener('click', async () => {
+             // Use DB for full backup instead of ui state
+             const fullData = await db.getAllData();
+             backupToExcel(fullData);
+        })
         document.getElementById('importExcelInput').addEventListener('change', (e) => this.handleImport(e, 'excel'))
+        document.getElementById('sendBackupToTelegramBtn').addEventListener('click', () => this.handleSendBackupToTelegram())
 
         // --- SQL Script ---
         document.getElementById('showDbScriptBtn').addEventListener('click', () => this.showSqlModal())
@@ -1353,21 +1358,6 @@ create policy "Users can delete their own visits"
             return;
         }
 
-        // Get visits (already loaded in this.data.visits)
-        // Sort by date ascending (upcoming/nearest first) or descending (newest created)?
-        // Visits table has `visit_date` (string YYYY/MM/DD).
-        // Let's sort by date descending (newest first) usually makes sense for "Last N items",
-        // BUT "Prior Appointments" might imply upcoming.
-        // However, "Management Information -> Visits" usually lists all.
-        // Let's stick to Date Ascending (closest first) as it is in the list, OR Descending?
-        // If I want "Last N", I probably want the most recent ones added or the upcoming ones?
-        // Let's assume "Upcoming" (Date Ascending from today) if they are appointments.
-        // But `this.data.visits` is currently sorted by `visit_date` ascending in `db.js`.
-        // So `slice(0, count)` gives the earliest/oldest/nearest dates.
-        // Let's filter for future only? Or just take the list as is (which is all pending visits).
-        // The list might be mixed.
-        // Let's just take the first N from the current list, which is sorted by date ascending.
-
         const visitsToSend = this.data.visits.slice(0, count);
 
         if (visitsToSend.length === 0) {
@@ -1415,6 +1405,62 @@ create policy "Users can delete their own visits"
             const btn = document.getElementById('sendVisitsToTelegramBtn');
             btn.innerHTML = originalText;
             btn.disabled = false;
+        }
+    },
+
+    async handleSendBackupToTelegram() {
+        const token = localStorage.getItem('bolt_telegram_token');
+        const userId = localStorage.getItem('bolt_telegram_userid');
+
+        if (!token || !userId) {
+            this.showToast('لطفاً ابتدا توکن ربات و شناسه کاربری را در تنظیمات وارد کنید.', 'error');
+            return;
+        }
+
+        try {
+            const btn = document.getElementById('sendBackupToTelegramBtn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> در حال تهیه و ارسال...';
+            btn.disabled = true;
+
+            // 1. Get Full Data
+            const fullData = await db.getAllData();
+
+            // 2. Generate Excel Blob
+            const blob = await getBackupBlob(fullData);
+
+            // 3. Create Form Data
+            const formData = new FormData();
+            formData.append('chat_id', userId);
+            formData.append('document', blob, `Backup_${new Date().toISOString().slice(0,10)}.xlsx`);
+            formData.append('caption', '📦 نسخه پشتیبان جدید (اکسل)');
+
+            // 4. Send
+            const response = await fetch(`https://api.telegram.org/bot${token}/sendDocument`, {
+                method: 'POST',
+                body: formData
+            });
+
+            const resData = await response.json();
+
+            if (resData.ok) {
+                this.showToast('فایل پشتیبان با موفقیت به تلگرام ارسال شد.', 'success');
+            } else {
+                console.error('Telegram Error:', resData);
+                this.showToast('خطا در ارسال فایل به تلگرام.', 'error');
+            }
+
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+
+        } catch (error) {
+            console.error(error);
+            this.showToast('خطا در تهیه یا ارسال پشتیبان.', 'error');
+            const btn = document.getElementById('sendBackupToTelegramBtn');
+            if (btn) {
+                btn.innerHTML = '<i class="bi bi-telegram"></i> ارسال بک‌آپ اکسل به تلگرام';
+                btn.disabled = false;
+            }
         }
     },
 

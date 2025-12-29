@@ -452,9 +452,11 @@
                             <input type="text" class="form-control" id="newRegionInput" placeholder="نام منطقه جدید...">
                             <button class="btn btn-success" type="button" id="addRegionBtn">افزودن</button>
                         </div>
-                        <ul class="list-group mb-4" id="regionList">
-                            <!-- Populated by JS -->
-                        </ul>
+                        <div style="max-height: 200px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.375rem;" class="mb-4">
+                            <ul class="list-group list-group-flush" id="regionList">
+                                <!-- Populated by JS -->
+                            </ul>
+                        </div>
 
                         <hr>
 
@@ -463,9 +465,11 @@
                             <input type="text" class="form-control" id="newProductInput" placeholder="نام کالا جدید...">
                             <button class="btn btn-success" type="button" id="addProductBtn">افزودن</button>
                         </div>
-                        <ul class="list-group mb-4" id="productList">
-                            <!-- Populated by JS -->
-                        </ul>
+                        <div style="max-height: 200px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.375rem;" class="mb-4">
+                            <ul class="list-group list-group-flush" id="productList">
+                                <!-- Populated by JS -->
+                            </ul>
+                        </div>
 
                         <hr>
 
@@ -484,42 +488,59 @@
 
                         <hr>
 
-                        <h6 class="fw-bold mb-3">پشتیبان‌گیری و خروجی</h6>
-                        <div class="d-flex gap-2 mb-2">
-                            <button class="btn btn-outline-success w-100" id="exportReportBtn">
-                                <i class="bi bi-file-text"></i> گزارش اکسل
-                            </button>
+                        <h6 class="fw-bold mb-3">مدیریت داده‌ها و پشتیبان‌گیری</h6>
+
+                        <!-- Backup Actions -->
+                        <div class="row g-2 mb-2">
+                            <div class="col-6">
+                                <button class="btn btn-outline-primary w-100" id="backupJsonBtn">
+                                    <i class="bi bi-filetype-json"></i> دانلود JSON
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button class="btn btn-outline-warning w-100" onclick="document.getElementById('importJsonInput').click()">
+                                    <i class="bi bi-upload"></i> بازگردانی JSON
+                                </button>
+                                <input type="file" id="importJsonInput" accept=".json" class="d-none">
+                            </div>
                         </div>
 
-                        <div class="mt-2">
-                             <button class="btn btn-outline-info w-100" id="showDbScriptBtn">
-                                <i class="bi bi-database-gear"></i> دریافت اسکریپت آپدیت دیتابیس
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <button class="btn btn-outline-success w-100" id="backupExcelBtn">
+                                    <i class="bi bi-file-earmark-excel"></i> دانلود اکسل
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button class="btn btn-outline-warning w-100" onclick="document.getElementById('importExcelInput').click()">
+                                    <i class="bi bi-upload"></i> بازگردانی اکسل
+                                </button>
+                                <input type="file" id="importExcelInput" accept=".xlsx, .xls" class="d-none">
+                            </div>
+                        </div>
+
+                        <!-- Telegram Backup -->
+                        <div class="d-grid mb-3">
+                             <button class="btn btn-outline-info" id="sendBackupToTelegramBtn">
+                                <i class="bi bi-telegram"></i> ارسال بک‌آپ اکسل به تلگرام
                             </button>
                         </div>
 
                         <hr>
-                        <h6 class="fw-bold mb-2 small text-muted">مدیریت فایل‌های پشتیبان</h6>
 
-                        <!-- JSON Actions -->
-                        <div class="d-flex gap-2 mb-2">
-                            <button class="btn btn-outline-primary w-50" id="backupJsonBtn">
-                                <i class="bi bi-download"></i> دانلود JSON
-                            </button>
-                            <button class="btn btn-outline-warning w-50" onclick="document.getElementById('importJsonInput').click()">
-                                <i class="bi bi-upload"></i> بازگردانی JSON
-                            </button>
-                            <input type="file" id="importJsonInput" accept=".json" class="d-none">
-                        </div>
-
-                        <!-- Excel Backup Actions -->
-                        <div class="d-flex gap-2">
-                            <button class="btn btn-outline-success w-50" id="backupExcelBtn">
-                                <i class="bi bi-download"></i> دانلود اکسل
-                            </button>
-                            <button class="btn btn-outline-warning w-50" onclick="document.getElementById('importExcelInput').click()">
-                                <i class="bi bi-upload"></i> بازگردانی اکسل
-                            </button>
-                            <input type="file" id="importExcelInput" accept=".xlsx, .xls" class="d-none">
+                        <!-- Other Tools -->
+                        <h6 class="fw-bold mb-2 small text-muted">سایر ابزارها</h6>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <button class="btn btn-light w-100 border" id="exportReportBtn">
+                                    <i class="bi bi-table"></i> گزارش ساده
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button class="btn btn-light w-100 border" id="showDbScriptBtn">
+                                    <i class="bi bi-database"></i> اسکریپت DB
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
