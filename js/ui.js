@@ -258,7 +258,8 @@ export const ui = {
         })
 
         document.getElementById('orderDateFilter').addEventListener('change', () => this.renderAllOrders())
-        document.getElementById('sendToTelegramBtn').addEventListener('click', () => this.handleSendToTelegram())
+        document.getElementById('sendOrdersToTelegramBtn').addEventListener('click', () => this.handleSendOrdersToTelegram())
+        document.getElementById('sendVisitsToTelegramBtn').addEventListener('click', () => this.handleSendVisitsToTelegram())
 
         // --- Visits ---
         document.getElementById('saveVisitBtn').addEventListener('click', () => this.handleSaveVisit())
@@ -1262,16 +1263,17 @@ create policy "Users can delete their own visits"
         this.showToast('تنظیمات تلگرام ذخیره شد.', 'success');
     },
 
-    async handleSendToTelegram() {
+    async handleSendOrdersToTelegram() {
         const token = localStorage.getItem('bolt_telegram_token');
         const userId = localStorage.getItem('bolt_telegram_userid');
+        const count = parseInt(document.getElementById('telegramOrderCount').value) || 20;
 
         if (!token || !userId) {
             this.showToast('لطفاً ابتدا توکن ربات و شناسه کاربری را در تنظیمات وارد کنید.', 'error');
             return;
         }
 
-        // Get last 20 orders
+        // Get orders
         let allOrders = [];
         this.data.stores.forEach(store => {
             if (store.orders) {
@@ -1288,19 +1290,14 @@ create policy "Users can delete their own visits"
         // Sort by newest
         allOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-        // Take last 20 (or chosen number)
-        // User asked for "Send to Bot depending on user choice".
-        // For simplicity in this iteration, we send last 20 or user could filter.
-        // Let's prompt for number? Or just send filtered list if filter exists?
-        // Let's stick to user request "Last few orders".
-        const ordersToSend = allOrders.slice(0, 20);
+        const ordersToSend = allOrders.slice(0, count);
 
         if (ordersToSend.length === 0) {
             this.showToast('سفارشی برای ارسال وجود ندارد.', 'warning');
             return;
         }
 
-        let message = `📋 *لیست ۲۰ سفارش آخر*\n\n`;
+        let message = `📋 *لیست ${count} سفارش آخر*\n\n`;
         ordersToSend.forEach((o, i) => {
              let itemsText = '-';
              if (o.items && o.items.length) {
@@ -1310,7 +1307,7 @@ create policy "Users can delete their own visits"
         });
 
         try {
-            const btn = document.getElementById('sendToTelegramBtn');
+            const btn = document.getElementById('sendOrdersToTelegramBtn');
             const originalText = btn.innerHTML;
             btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> ارسال...';
             btn.disabled = true;
@@ -1340,8 +1337,83 @@ create policy "Users can delete their own visits"
         } catch (error) {
             console.error(error);
             this.showToast('خطا در ارتباط با سرور تلگرام.', 'error');
-            const btn = document.getElementById('sendToTelegramBtn');
-            btn.innerHTML = '<i class="bi bi-telegram me-1"></i> ارسال ۲۰ سفارش آخر به ربات';
+            const btn = document.getElementById('sendOrdersToTelegramBtn');
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    },
+
+    async handleSendVisitsToTelegram() {
+        const token = localStorage.getItem('bolt_telegram_token');
+        const userId = localStorage.getItem('bolt_telegram_userid');
+        const count = parseInt(document.getElementById('telegramVisitCount').value) || 20;
+
+        if (!token || !userId) {
+            this.showToast('لطفاً ابتدا توکن ربات و شناسه کاربری را در تنظیمات وارد کنید.', 'error');
+            return;
+        }
+
+        // Get visits (already loaded in this.data.visits)
+        // Sort by date ascending (upcoming/nearest first) or descending (newest created)?
+        // Visits table has `visit_date` (string YYYY/MM/DD).
+        // Let's sort by date descending (newest first) usually makes sense for "Last N items",
+        // BUT "Prior Appointments" might imply upcoming.
+        // However, "Management Information -> Visits" usually lists all.
+        // Let's stick to Date Ascending (closest first) as it is in the list, OR Descending?
+        // If I want "Last N", I probably want the most recent ones added or the upcoming ones?
+        // Let's assume "Upcoming" (Date Ascending from today) if they are appointments.
+        // But `this.data.visits` is currently sorted by `visit_date` ascending in `db.js`.
+        // So `slice(0, count)` gives the earliest/oldest/nearest dates.
+        // Let's filter for future only? Or just take the list as is (which is all pending visits).
+        // The list might be mixed.
+        // Let's just take the first N from the current list, which is sorted by date ascending.
+
+        const visitsToSend = this.data.visits.slice(0, count);
+
+        if (visitsToSend.length === 0) {
+            this.showToast('قراری برای ارسال وجود ندارد.', 'warning');
+            return;
+        }
+
+        let message = `📅 *لیست ${count} قرار ویزیت*\n\n`;
+        visitsToSend.forEach((v, i) => {
+             const status = v.status === 'done' ? '✅ انجام شده' : '⏳ در انتظار';
+             message += `${i+1}. *${v.store?.name || 'نامشخص'}* (${v.store?.region || '-'}) \n📅 ${v.visit_date} ⏰ ${v.visit_time || '-'}\n📝 ${v.note || ''}\n${status}\n\n`;
+        });
+
+        try {
+            const btn = document.getElementById('sendVisitsToTelegramBtn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> ارسال...';
+            btn.disabled = true;
+
+            const url = `https://api.telegram.org/bot${token}/sendMessage`;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: userId,
+                    text: message,
+                    parse_mode: 'Markdown'
+                })
+            });
+
+            const resData = await response.json();
+
+            if (resData.ok) {
+                this.showToast('لیست قرارها به تلگرام ارسال شد.', 'success');
+            } else {
+                console.error('Telegram Error:', resData);
+                this.showToast('خطا در ارسال به تلگرام.', 'error');
+            }
+
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        } catch (error) {
+            console.error(error);
+            this.showToast('خطا در ارتباط با سرور تلگرام.', 'error');
+            const btn = document.getElementById('sendVisitsToTelegramBtn');
+            btn.innerHTML = originalText;
             btn.disabled = false;
         }
     },

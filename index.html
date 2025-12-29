@@ -112,48 +112,16 @@
 
             <!-- View: Dashboard -->
             <div id="dashboardView">
-                <!-- Filters & Search -->
-                <div class="row g-3 mb-4">
-                    <div class="col-md-3">
+                <!-- Search & Filter Button -->
+                <div class="row g-3 mb-4 align-items-end">
+                    <div class="col-md-10">
                         <label class="form-label">جستجو</label>
                         <input type="text" class="form-control" id="searchInput" placeholder="نام فروشگاه یا آدرس...">
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">فیلتر زمان</label>
-                        <select class="form-select" id="filterDay">
-                            <option value="today" selected>برنامه امروز (هوشمند)</option>
-                            <option value="all">همه روزها</option>
-                            <option value="6">شنبه</option>
-                            <option value="0">یکشنبه</option>
-                            <option value="1">دوشنبه</option>
-                            <option value="2">سه‌شنبه</option>
-                            <option value="3">چهارشنبه</option>
-                            <option value="4">پنج‌شنبه</option>
-                            <option value="5">جمعه</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">فیلتر منطقه</label>
-                        <select class="form-select" id="filterRegion">
-                            <option value="all">همه مناطق</option>
-                            <!-- Options populated by JS -->
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">وضعیت ویزیت (7 روز)</label>
-                        <select class="form-select" id="filterVisitStatus">
-                            <option value="all">همه</option>
-                            <option value="visited">ویزیت شده</option>
-                            <option value="not_visited">ویزیت نشده</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">احتمال خرید</label>
-                        <select class="form-select" id="filterProb">
-                            <option value="all">همه</option>
-                            <option value="high">زیاد</option>
-                            <option value="low">کم</option>
-                        </select>
+                    <div class="col-md-2">
+                        <button class="btn btn-outline-primary w-100" data-bs-toggle="modal" data-bs-target="#filterModal">
+                            <i class="bi bi-funnel"></i> فیلترها
+                        </button>
                     </div>
                 </div>
 
@@ -195,7 +163,7 @@
                 <ul class="nav nav-tabs mb-3" id="manageTabs" role="tablist">
                     <li class="nav-item" role="presentation">
                         <button class="nav-link active" id="tab-visits-btn" data-bs-toggle="tab" data-bs-target="#tab-visits" type="button">
-                            <i class="bi bi-calendar-event me-1"></i> قرارهای ویزیت
+                            <i class="bi bi-calendar-event me-1"></i> قرارهای قبلی
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
@@ -252,6 +220,17 @@
 
                     <!-- Tab: Visits -->
                     <div class="tab-pane fade show active" id="tab-visits">
+                        <div class="d-flex justify-content-end mb-2">
+                            <div class="d-inline-flex align-items-end gap-2">
+                                <div style="width: 80px;">
+                                    <label class="form-label small text-muted mb-1">تعداد</label>
+                                    <input type="number" class="form-control form-control-sm text-center" id="telegramVisitCount" value="20" min="1">
+                                </div>
+                                <button class="btn btn-info text-white btn-sm" id="sendVisitsToTelegramBtn">
+                                    <i class="bi bi-telegram me-1"></i> ارسال به ربات
+                                </button>
+                            </div>
+                        </div>
                         <div class="table-responsive bg-white rounded shadow-sm p-3">
                             <table class="table table-hover align-middle">
                                 <thead class="table-light">
@@ -349,9 +328,15 @@
                         <input type="text" class="form-control" id="orderDateFilter" placeholder="1402/01/01">
                     </div>
                     <div class="col-md-8 text-end">
-                         <button class="btn btn-info text-white" id="sendToTelegramBtn">
-                            <i class="bi bi-telegram me-1"></i> ارسال ۲۰ سفارش آخر به ربات
-                        </button>
+                        <div class="d-inline-flex align-items-end gap-2">
+                            <div style="width: 80px;">
+                                <label class="form-label small text-muted mb-1">تعداد</label>
+                                <input type="number" class="form-control form-control-sm text-center" id="telegramOrderCount" value="20" min="1">
+                            </div>
+                            <button class="btn btn-info text-white btn-sm" id="sendOrdersToTelegramBtn">
+                                <i class="bi bi-telegram me-1"></i> ارسال به ربات
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -382,6 +367,60 @@
             <button class="fab-button" id="addStoreBtn" title="افزودن فروشگاه">
                 <i class="bi bi-plus-lg"></i>
             </button>
+        </div>
+
+        <!-- Modal: Filters -->
+        <div class="modal fade" id="filterModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">تنظیم فیلترها</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">فیلتر زمان</label>
+                            <select class="form-select" id="filterDay">
+                                <option value="all" selected>همه روزها</option>
+                                <option value="today">برنامه امروز (هوشمند)</option>
+                                <option value="6">شنبه</option>
+                                <option value="0">یکشنبه</option>
+                                <option value="1">دوشنبه</option>
+                                <option value="2">سه‌شنبه</option>
+                                <option value="3">چهارشنبه</option>
+                                <option value="4">پنج‌شنبه</option>
+                                <option value="5">جمعه</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">فیلتر منطقه</label>
+                            <select class="form-select" id="filterRegion">
+                                <option value="all">همه مناطق</option>
+                                <!-- Options populated by JS -->
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">وضعیت ویزیت (7 روز)</label>
+                            <select class="form-select" id="filterVisitStatus">
+                                <option value="all">همه</option>
+                                <option value="visited">ویزیت شده</option>
+                                <option value="not_visited">ویزیت نشده</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">احتمال خرید</label>
+                            <select class="form-select" id="filterProb">
+                                <option value="all">همه</option>
+                                <option value="high">زیاد</option>
+                                <option value="low">کم</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary w-100" data-bs-dismiss="modal">مشاهده نتایج</button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Modal: Daily Sales -->
