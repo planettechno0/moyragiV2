@@ -173,6 +173,53 @@ export const ui = {
         }
     },
 
+    async handleSearch() {
+        const query = document.getElementById('searchInput').value.trim();
+        const statusEl = document.getElementById('searchStatus');
+
+        if (!query) {
+            this.handleClearSearch();
+            return;
+        }
+
+        // Show searching state
+        const container = document.getElementById('storesContainer');
+        container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><div class="mt-2">در حال جستجو...</div></div>';
+        statusEl.textContent = 'در حال جستجو در دیتابیس...';
+        statusEl.classList.remove('d-none');
+
+        // Hide Load More during search
+        document.getElementById('loadMoreContainer').classList.add('d-none');
+
+        try {
+            const results = await db.searchStores(query);
+            this.data.stores = results; // Replace current list with search results
+
+            // Disable pagination for search mode
+            this.pagination.hasMore = false;
+
+            this.renderStores();
+
+            if (results.length === 0) {
+                statusEl.textContent = 'موردی یافت نشد.';
+            } else {
+                statusEl.textContent = `${results.length} مورد یافت شد.`;
+            }
+        } catch (error) {
+            console.error(error);
+            this.showToast('خطا در جستجو', 'error');
+            statusEl.textContent = 'خطا در جستجو.';
+            container.innerHTML = ''; // Clear spinner
+        }
+    },
+
+    async handleClearSearch() {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('searchStatus').classList.add('d-none');
+        this.resetPagination();
+        await this.loadStoresChunk();
+    },
+
     // Kept for backward compat with other methods calling refreshData(), now alias to loadInitialData
     async refreshData() {
         return this.loadInitialData();
@@ -189,9 +236,18 @@ export const ui = {
         // Given complexity, let's keep client-side filter behavior but realize it only filters loaded data.
         // OR: Reset pagination and re-render.
 
-        const filterHandler = () => this.renderStores(); // Just re-render what we have
+        const filterHandler = () => {
+             // If we are in "Search Mode" (hasMore = false and search not empty?), client-side filter still applies on result set
+             this.renderStores();
+        }
 
-        document.getElementById('searchInput').addEventListener('input', filterHandler)
+        // document.getElementById('searchInput').addEventListener('input', filterHandler) // Removed live filtering in favor of DB search
+        document.getElementById('searchInput').addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') this.handleSearch();
+            if (e.target.value === '') this.handleClearSearch(); // Optional: auto clear
+        })
+        document.getElementById('searchBtn').addEventListener('click', () => this.handleSearch())
+
         document.getElementById('filterDay').addEventListener('change', filterHandler)
         document.getElementById('filterRegion').addEventListener('change', filterHandler)
         document.getElementById('filterProb').addEventListener('change', filterHandler)

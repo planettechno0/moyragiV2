@@ -116,7 +116,13 @@
                 <div class="row g-3 mb-4 align-items-end">
                     <div class="col-md-10">
                         <label class="form-label">جستجو</label>
-                        <input type="text" class="form-control" id="searchInput" placeholder="نام فروشگاه یا آدرس...">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="searchInput" placeholder="نام فروشگاه یا آدرس...">
+                            <button class="btn btn-primary" type="button" id="searchBtn">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </div>
+                        <div id="searchStatus" class="form-text text-muted d-none"></div>
                     </div>
                     <div class="col-md-2">
                         <button class="btn btn-outline-primary w-100" data-bs-toggle="modal" data-bs-target="#filterModal">
