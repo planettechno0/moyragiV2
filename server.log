@@ -1,0 +1,113 @@
+Starting up http-server, serving .
+
+http-server version: 14.1.1
+
+http-server settings:
+CORS: disabled
+Cache: 3600 seconds
+Connection Timeout: 120 seconds
+Directory Listings: visible
+AutoIndex: visible
+Serve GZIP Files: false
+Serve Brotli Files: false
+Default File Extension: none
+
+Available on:
+  http://127.0.0.1:8080
+  http://192.168.0.2:8080
+Hit CTRL-C to stop the server
+
+[2025-12-31T09:34:43.333Z]  "GET /index.html" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+(node:2461) [DEP0066] DeprecationWarning: OutgoingMessage.prototype._headers is deprecated
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[2025-12-31T09:34:43.486Z]  "GET /css/style.css" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:34:43.488Z]  "GET /js/main.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:34:44.031Z]  "GET /js/services/auth.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:34:44.032Z]  "GET /js/app.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:34:44.042Z]  "GET /js/services/supabase.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:34:44.047Z]  "GET /js/services/db.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:34:44.060Z]  "GET /js/core/state.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:34:44.061Z]  "GET /js/components/shared/Toast.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:34:44.062Z]  "GET /js/components/dashboard/DashboardView.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:34:44.063Z]  "GET /js/components/orders/OrdersView.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:34:44.063Z]  "GET /js/components/management/ManagementView.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:34:44.063Z]  "GET /js/components/visits/VisitList.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:34:44.067Z]  "GET /js/core/state.js" Error (404): "Not found"
+[2025-12-31T09:34:44.068Z]  "GET /js/components/dashboard/DashboardView.js" Error (404): "Not found"
+[2025-12-31T09:34:44.071Z]  "GET /js/components/visits/VisitModal.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:34:44.072Z]  "GET /js/components/orders/OrderModal.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:34:44.073Z]  "GET /js/components/management/ManagementView.js" Error (404): "Not found"
+[2025-12-31T09:34:44.074Z]  "GET /js/components/settings/RegionManager.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:34:44.074Z]  "GET /js/components/settings/ProductManager.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:34:44.075Z]  "GET /js/components/settings/SettingsModal.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:34:44.077Z]  "GET /js/components/dashboard/AddStoreModal.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:34:44.077Z]  "GET /js/components/visits/VisitModal.js" Error (404): "Not found"
+[2025-12-31T09:34:44.078Z]  "GET /js/components/orders/OrderModal.js" Error (404): "Not found"
+[2025-12-31T09:34:44.078Z]  "GET /js/components/settings/ProductManager.js" Error (404): "Not found"
+[2025-12-31T09:34:44.078Z]  "GET /js/components/settings/SettingsModal.js" Error (404): "Not found"
+[2025-12-31T09:34:44.079Z]  "GET /js/components/dashboard/AddStoreModal.js" Error (404): "Not found"
+[2025-12-31T09:34:44.081Z]  "GET /js/services/excel.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:34:44.082Z]  "GET /js/services/backup.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:34:44.083Z]  "GET /js/components/shared/Utils.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:34:44.083Z]  "GET /js/services/date_utils.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:34:44.084Z]  "GET /js/services/config.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:34:44.085Z]  "GET /js/db.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:34:44.090Z]  "GET /js/components/shared/Utils.js" Error (404): "Not found"
+[2025-12-31T09:34:44.091Z]  "GET /js/db.js" Error (404): "Not found"
+[2025-12-31T09:34:44.165Z]  "GET /sw.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:34:44.363Z]  "GET /" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:34:44.381Z]  "GET /js/core/state.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:34:44.382Z]  "GET /js/core/state.js" Error (404): "Not found"
+[2025-12-31T09:34:44.456Z]  "GET /js/components/dashboard/StoreList.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:34:44.457Z]  "GET /js/components/dashboard/StoreCard.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:34:44.457Z]  "GET /js/components/dashboard/SearchBar.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:34:44.458Z]  "GET /js/components/management/StoreTable.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:34:44.460Z]  "GET /js/components/management/Statistics.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:34:44.461Z]  "GET /js/components/dashboard/StoreList.js" Error (404): "Not found"
+[2025-12-31T09:34:44.461Z]  "GET /js/components/dashboard/SearchBar.js" Error (404): "Not found"
+[2025-12-31T09:34:44.464Z]  "GET /js/components/management/Statistics.js" Error (404): "Not found"
+[2025-12-31T09:35:50.397Z]  "GET /index.html" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:35:50.411Z]  "GET /css/style.css" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:35:50.411Z]  "GET /js/main.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:35:50.516Z]  "GET /js/services/auth.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:35:50.517Z]  "GET /js/app.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:35:50.524Z]  "GET /js/services/supabase.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:35:50.533Z]  "GET /js/services/db.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:35:50.537Z]  "GET /js/core/state.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:35:50.537Z]  "GET /js/components/shared/Toast.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:35:50.538Z]  "GET /js/components/dashboard/DashboardView.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:35:50.538Z]  "GET /js/components/orders/OrdersView.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:35:50.539Z]  "GET /js/components/management/ManagementView.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:35:50.539Z]  "GET /js/components/visits/VisitList.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:35:50.541Z]  "GET /js/core/state.js" Error (404): "Not found"
+[2025-12-31T09:35:50.541Z]  "GET /js/components/dashboard/DashboardView.js" Error (404): "Not found"
+[2025-12-31T09:35:50.541Z]  "GET /js/components/management/ManagementView.js" Error (404): "Not found"
+[2025-12-31T09:35:50.543Z]  "GET /js/components/visits/VisitModal.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:35:50.544Z]  "GET /js/components/orders/OrderModal.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:35:50.544Z]  "GET /js/components/settings/RegionManager.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:35:50.545Z]  "GET /js/components/settings/ProductManager.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:35:50.545Z]  "GET /js/components/settings/SettingsModal.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:35:50.546Z]  "GET /js/components/dashboard/AddStoreModal.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:35:50.550Z]  "GET /js/services/excel.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:35:50.551Z]  "GET /js/components/visits/VisitModal.js" Error (404): "Not found"
+[2025-12-31T09:35:50.551Z]  "GET /js/components/orders/OrderModal.js" Error (404): "Not found"
+[2025-12-31T09:35:50.551Z]  "GET /js/components/settings/ProductManager.js" Error (404): "Not found"
+[2025-12-31T09:35:50.552Z]  "GET /js/components/settings/SettingsModal.js" Error (404): "Not found"
+[2025-12-31T09:35:50.552Z]  "GET /js/components/dashboard/AddStoreModal.js" Error (404): "Not found"
+[2025-12-31T09:35:50.557Z]  "GET /js/services/backup.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:35:50.558Z]  "GET /js/components/shared/Utils.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:35:50.558Z]  "GET /js/services/date_utils.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:35:50.559Z]  "GET /js/services/config.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:35:50.559Z]  "GET /sw.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:35:50.561Z]  "GET /js/components/shared/Utils.js" Error (404): "Not found"
+[2025-12-31T09:35:50.579Z]  "GET /" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:35:50.585Z]  "GET /js/core/state.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:35:50.585Z]  "GET /js/core/state.js" Error (404): "Not found"
+[2025-12-31T09:35:50.604Z]  "GET /js/components/dashboard/StoreList.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:35:50.605Z]  "GET /js/components/dashboard/StoreCard.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:35:50.605Z]  "GET /js/components/dashboard/SearchBar.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:35:50.605Z]  "GET /js/components/management/StoreTable.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:35:50.606Z]  "GET /js/components/management/Statistics.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+[2025-12-31T09:35:50.608Z]  "GET /js/components/dashboard/StoreList.js" Error (404): "Not found"
+[2025-12-31T09:35:50.608Z]  "GET /js/components/dashboard/SearchBar.js" Error (404): "Not found"
+[2025-12-31T09:35:50.609Z]  "GET /js/components/management/Statistics.js" Error (404): "Not found"
