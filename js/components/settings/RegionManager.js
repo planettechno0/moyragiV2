@@ -1,5 +1,5 @@
 import { state } from '../../core/state.js';
-import { db } from '../../db.js';
+import { db } from '../../services/db.js';
 import { Toast } from '../shared/Toast.js';
 import { Utils } from '../shared/Utils.js';
 

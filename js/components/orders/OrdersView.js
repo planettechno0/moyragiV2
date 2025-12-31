@@ -1,4 +1,4 @@
-import { db } from '../../db.js';
+import { db } from '../../services/db.js';
 import { state } from '../../core/state.js';
 import { Utils } from '../shared/Utils.js';
 import { Toast } from '../shared/Toast.js';

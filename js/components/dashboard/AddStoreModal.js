@@ -1,0 +1,92 @@
+import { db } from '../../services/db.js';
+import { state } from '../../core/state.js';
+import { Toast } from '../shared/Toast.js';
+import { StoreList } from '../dashboard/StoreList.js';
+
+export const AddStoreModal = {
+    open(storeId = null) {
+        const form = document.getElementById('addStoreForm');
+        form.reset();
+        document.querySelectorAll('.store-day-check').forEach(cb => cb.checked = false);
+
+        if (storeId) {
+            const store = state.data.stores.find(s => s.id == storeId);
+            if (store) {
+                document.getElementById('storeId').value = store.id;
+                document.getElementById('storeName').value = store.name;
+                document.getElementById('storeDescription').value = store.description || '';
+                document.getElementById('storeSellerName').value = store.seller_name || '';
+                document.getElementById('storeAddress').value = store.address || '';
+                document.getElementById('storePhone').value = store.phone || '';
+                document.getElementById('storeRegion').value = store.region;
+                document.getElementById('storeIdealTime').value = store.ideal_time || '';
+                document.getElementById('storePurchaseProb').value = store.purchase_prob || '';
+                document.getElementById('storeModalTitle').textContent = 'ویرایش فروشگاه';
+
+                if (store.visit_days) {
+                    store.visit_days.forEach(d => {
+                        const cb = document.getElementById(`d${d}`);
+                        if (cb) cb.checked = true;
+                    });
+                }
+            }
+        } else {
+            document.getElementById('storeId').value = '';
+            document.getElementById('storeModalTitle').textContent = 'ثبت فروشگاه جدید';
+        }
+
+        new bootstrap.Modal(document.getElementById('addStoreModal')).show();
+    },
+
+    async save() {
+        const id = document.getElementById('storeId').value;
+        const name = document.getElementById('storeName').value.trim();
+        const region = document.getElementById('storeRegion').value;
+
+        if (!name || !region) {
+            Toast.show('نام و منطقه الزامی است.', 'error');
+            return;
+        }
+
+        const visitDays = [];
+        document.querySelectorAll('.store-day-check:checked').forEach(cb => visitDays.push(parseInt(cb.value)));
+
+        const storeData = {
+            name,
+            region,
+            description: document.getElementById('storeDescription').value,
+            sellerName: document.getElementById('storeSellerName').value,
+            address: document.getElementById('storeAddress').value,
+            phone: document.getElementById('storePhone').value,
+            idealTime: document.getElementById('storeIdealTime').value,
+            purchaseProb: document.getElementById('storePurchaseProb').value,
+            visitDays
+        };
+
+        try {
+            if (id) {
+                await db.updateStore(id, storeData);
+                Toast.show('فروشگاه با موفقیت ویرایش شد.', 'success');
+            } else {
+                await db.addStore(storeData);
+                Toast.show('فروشگاه جدید ثبت شد.', 'success');
+            }
+
+            bootstrap.Modal.getInstance(document.getElementById('addStoreModal')).hide();
+
+            // Refresh logic: We should probably reload just the one store or all.
+            // But since we are paginated, reloading all clears pagination.
+            // Let's force a reload of the current chunk or just append if new?
+            // Simpler to rely on generic refresh signal or just reload pagination.
+            document.dispatchEvent(new Event('data-change'));
+        } catch (err) {
+            console.error(err);
+            Toast.show('خطا در ذخیره سازی', 'error');
+        }
+    },
+
+    initListeners() {
+        document.getElementById('saveStoreBtn').addEventListener('click', () => this.save());
+        document.getElementById('addStoreBtn').addEventListener('click', () => this.open());
+    }
+};

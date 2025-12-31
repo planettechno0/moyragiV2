@@ -56,8 +56,6 @@ export const StoreTable = {
             `;
             tbody.appendChild(tr);
         });
-
-        // Event delegation for table actions is handled globally or via ManagementView init
     },
 
     initListeners() {
