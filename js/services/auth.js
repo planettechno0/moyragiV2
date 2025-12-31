@@ -5,14 +5,22 @@ export const auth = {
 
     async init() {
         // Check active session
-        const { data: { session } } = await supabase.auth.getSession()
-        this.user = session?.user || null
+        try {
+            const { data, error } = await supabase.auth.getSession()
+            if (error) console.error("Auth init error:", error)
+            this.user = data?.session?.user || null
+        } catch (e) {
+            console.error("Auth init failed:", e)
+        }
 
         // Listen for changes
         supabase.auth.onAuthStateChange((_event, session) => {
             this.user = session?.user || null
             this.updateUI()
         })
+
+        // Ensure UI matches initial state immediately
+        this.updateUI()
     },
 
     async login(email, password) {
@@ -32,6 +40,9 @@ export const auth = {
     updateUI() {
         const authContainer = document.getElementById('authContainer')
         const appContainer = document.getElementById('appContainer')
+
+        // Safety check if elements exist (e.g. running in test mode)
+        if (!authContainer || !appContainer) return;
 
         if (this.user) {
             authContainer.classList.add('d-none')

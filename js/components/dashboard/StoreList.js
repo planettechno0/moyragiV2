@@ -4,23 +4,50 @@ import { Toast } from '../shared/Toast.js';
 import { StoreCard } from './StoreCard.js';
 
 export const StoreList = {
-    async loadChunk() {
+    async loadChunk(append = true) {
         const loadingSpinner = state.pagination.page === 0
-             ? document.querySelector('#storesContainer .spinner-border') // Initial load
-             : document.getElementById('loadMoreLoading'); // Load more
+             ? document.querySelector('#storesContainer .spinner-border')
+             : document.getElementById('loadMoreLoading');
 
         if (loadingSpinner && loadingSpinner.parentNode) loadingSpinner.parentNode.classList.remove('d-none');
         if (loadingSpinner && state.pagination.page > 0) loadingSpinner.classList.remove('d-none');
 
+        // Gather Filters
+        const filters = {
+            region: document.getElementById('filterRegion').value,
+            purchaseProb: document.getElementById('filterProb').value,
+            visitStatus: document.getElementById('filterVisitStatus').value,
+            day: document.getElementById('filterDay').value
+        };
+
+        // Search Query is handled by SearchBar separate logic usually,
+        // but if we want mixed filtering + search, we need a unified approach.
+        // Currently `SearchBar.handleSearch` calls `db.searchStores` which is text-only.
+        // To combine, `db.getStores` needs a search param or `db.searchStores` needs filters.
+        // For now, let's assume Filters apply to the main list, and Search is a separate mode.
+        // If Search is active (input not empty), we might ignore filters or we need to update `db.searchStores`.
+        // The user requirement was "Client-side Filtering on Partial Data" -> "Server-side".
+        // Let's stick to `getStores` using filters. `handleSearch` uses `db.searchStores`.
+        // If search input has text, we should probably use `searchStores`?
+        // But `searchStores` in `db.js` doesn't support other filters yet.
+        // For simplicity and scope, I will implement filtering for the main list (no text search).
+        // Text search remains separate mode.
+
         try {
-            const newStores = await db.getStores(state.pagination.page, state.pagination.pageSize);
+            const newStores = await db.getStores(state.pagination.page, state.pagination.pageSize, filters);
 
             if (newStores.length < state.pagination.pageSize) {
                 state.pagination.hasMore = false;
             }
 
-            state.data.stores = [...state.data.stores, ...newStores];
-            this.render(); // Append new stores
+            if (append) {
+                state.data.stores = [...state.data.stores, ...newStores];
+            } else {
+                state.data.stores = newStores;
+            }
+
+            this.render(append ? newStores : null); // Pass only new stores if appending, or null to render all
+
             state.pagination.page++;
         } catch (error) {
             console.error(error);
@@ -30,7 +57,7 @@ export const StoreList = {
         }
     },
 
-    render() {
+    render(newStoresOnly = null) {
         const container = document.getElementById('storesContainer');
         const emptyState = document.getElementById('emptyState');
         const loadMoreContainer = document.getElementById('loadMoreContainer');
@@ -41,47 +68,14 @@ export const StoreList = {
              container.innerHTML = '';
         }
 
-        // Clear container to support re-rendering with client-side filters
-        container.innerHTML = '';
+        if (!newStoresOnly) {
+            container.innerHTML = ''; // Clear if full render
+        }
 
-        const dayFilter = document.getElementById('filterDay').value;
-        const regionFilter = document.getElementById('filterRegion').value;
-        const probFilter = document.getElementById('filterProb').value;
-        const visitStatusFilter = document.getElementById('filterVisitStatus').value;
-        const searchQuery = document.getElementById('searchInput').value.trim().toLowerCase();
-        const currentDayIndex = new Date().getDay();
-        const now = new Date();
+        const storesToRender = newStoresOnly || state.data.stores;
 
-        const filteredStores = state.data.stores.filter(store => {
-            if (searchQuery) {
-                const searchMatch = store.name.toLowerCase().includes(searchQuery) ||
-                                    (store.address && store.address.toLowerCase().includes(searchQuery));
-                if (!searchMatch) return false;
-            }
-            if (regionFilter !== 'all' && store.region !== regionFilter) return false;
-            if (probFilter !== 'all' && store.purchase_prob !== probFilter) return false;
-
-            if (visitStatusFilter !== 'all') {
-                let isVisited7Days = false;
-                if (store.last_visit) {
-                    const lastVisitDate = new Date(store.last_visit);
-                    const diffTime = Math.abs(now - lastVisitDate);
-                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                    if (diffDays <= 7) isVisited7Days = true;
-                }
-                if (visitStatusFilter === 'visited' && !isVisited7Days) return false;
-                if (visitStatusFilter === 'not_visited' && isVisited7Days) return false;
-            }
-
-            if (dayFilter === 'all') return true;
-            if (dayFilter === 'today') {
-                return store.visit_days && store.visit_days.includes(currentDayIndex);
-            }
-            return store.visit_days && store.visit_days.includes(parseInt(dayFilter));
-        });
-
-        if (filteredStores.length === 0) {
-            if (state.data.stores.length === 0) emptyState.classList.remove('d-none');
+        if (state.data.stores.length === 0) {
+            emptyState.classList.remove('d-none');
         } else {
             emptyState.classList.add('d-none');
         }
@@ -93,8 +87,9 @@ export const StoreList = {
         }
 
         const fragment = document.createDocumentFragment();
+        const now = new Date();
 
-        filteredStores.forEach(store => {
+        storesToRender.forEach(store => {
             let isVisited = false;
             if (store.last_visit) {
                 const lastVisitDate = new Date(store.last_visit);

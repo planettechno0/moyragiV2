@@ -9,10 +9,9 @@ export const db = {
     },
 
     async fetchAll(table, queryModifier = null) {
-        // Helper to fetch all rows by chunking
         let allData = [];
         let page = 0;
-        const pageSize = 1000; // Supabase default limit
+        const pageSize = 1000;
         let hasMore = true;
 
         while (hasMore) {
@@ -21,7 +20,6 @@ export const db = {
 
             let query = supabase.from(table).select('*').range(from, to);
 
-            // Allow applying custom modifiers like nested selects or ordering
             if (queryModifier) {
                 query = queryModifier(query);
             }
@@ -45,11 +43,9 @@ export const db = {
     },
 
     async getAllStores() {
-        // Fetch all stores using chunking to bypass limit
         const modifier = (query) => query.select('*, orders (*)').order('created_at', { ascending: false });
         const data = await this.fetchAll('stores', modifier);
 
-        // Sort orders
         if (data) {
             data.forEach(store => {
                 if (store.orders) {
@@ -61,27 +57,11 @@ export const db = {
     },
 
     async getAllData() {
-        // Fetch EVERYTHING for backup
         const [regions, products, stores, orders, visits, visit_logs] = await Promise.all([
             this.fetchAll('regions'),
             this.fetchAll('products'),
-            this.fetchAll('stores'), // Note: this fetches stores without nested to be raw for backup?
-                                     // Actually backup expects nested structure for current JSON format,
-                                     // OR flat structure for strict relational backup.
-                                     // Existing 'getAllStores' returns nested.
-                                     // Let's fetch flat tables and let backup logic decide,
-                                     // OR reuse getAllStores logic if backup expects nesting.
-                                     // Backup.js expects: data.stores (with nested?), data.orders (flat?), data.visits.
-                                     // Let's look at backup.js: it exports data.stores (which has orders nested).
-                                     // BUT it also exports data.orders (flat) if we populate it.
-                                     // To be safe and complete, let's fetch 'stores' with 'orders' and 'visit_logs' nested,
-                                     // just like 'getStores' but for all.
-            // Actually, simply fetching everything flat is safer for a "Full Backup".
-            // But 'backupToJSON' logic in 'js/backup.js' dumps 'data.stores'.
-            // If we change 'data.stores' to be flat, we break nested expectations.
-            // So we should use 'getAllStores' which returns nested.
             this.getAllStores(),
-            this.fetchAll('orders'), // Also fetch flat orders just in case
+            this.fetchAll('orders'),
             this.fetchAll('visits'),
             this.fetchAll('visit_logs')
         ]);
@@ -90,7 +70,7 @@ export const db = {
             regions,
             products,
             stores,
-            orders, // Redundant if inside stores, but good for completeness
+            orders,
             visits,
             visit_logs
         };
@@ -126,14 +106,11 @@ export const db = {
     },
 
     // --- Stores ---
-    async getStores(page = 0, pageSize = 20) {
-        // Fetch stores with their orders
-        // Note: Pagination needs total count for perfect UI, but for Load More, we just need the next batch.
-        // Range is inclusive.
+    async getStores(page = 0, pageSize = 20, filters = {}) {
         const from = page * pageSize;
         const to = from + pageSize - 1;
 
-        const { data, error } = await supabase
+        let query = supabase
             .from('stores')
             .select(`
                 *,
@@ -143,9 +120,51 @@ export const db = {
             .order('created_at', { ascending: false })
             .range(from, to);
 
+        // Server-Side Filters
+        if (filters.region && filters.region !== 'all') {
+            query = query.eq('region', filters.region);
+        }
+
+        if (filters.purchaseProb && filters.purchaseProb !== 'all') {
+            query = query.eq('purchase_prob', filters.purchaseProb);
+        }
+
+        // 'visit_days' is an array column. To check if array contains day:
+        // Use 'cs' (contains) operator. e.g. visit_days.cs.{1}
+        if (filters.day !== undefined && filters.day !== 'all') {
+            let dayInt = parseInt(filters.day);
+            if (filters.day === 'today') {
+                dayInt = new Date().getDay();
+            }
+            if (!isNaN(dayInt)) {
+                query = query.contains('visit_days', [dayInt]);
+            }
+        }
+
+        // Visit Status Logic (Complex)
+        // Filtering by "Last 7 days" or "Not visited in 7 days" is hard with simple query builder
+        // if relies on computed logic.
+        // However, we have 'last_visit' timestamp column.
+        // Visited in last 7 days: last_visit >= 7 days ago.
+        // Not visited: last_visit < 7 days ago OR last_visit is null.
+        if (filters.visitStatus && filters.visitStatus !== 'all') {
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+            const isoDate = sevenDaysAgo.toISOString();
+
+            if (filters.visitStatus === 'visited') {
+                query = query.gte('last_visit', isoDate);
+            } else if (filters.visitStatus === 'not_visited') {
+                // OR logic is tricky: (last_visit < date) OR (last_visit is null).
+                // Supabase `.or()` syntax: `last_visit.lt.${isoDate},last_visit.is.null`
+                query = query.or(`last_visit.lt.${isoDate},last_visit.is.null`);
+            }
+        }
+
+        const { data, error } = await query;
+
         if (error) throw error
 
-        // Sort visit_logs
         if (data) {
              data.forEach(store => {
                  if (store.visit_logs) {
@@ -154,7 +173,6 @@ export const db = {
              })
         }
 
-        // Sort orders within stores
         if (data) {
             data.forEach(store => {
                 if (store.orders) {
@@ -166,7 +184,6 @@ export const db = {
     },
 
     async addStore(storeData) {
-        // Prepare data matching DB schema
         const payload = {
             name: storeData.name,
             description: storeData.description,
@@ -204,19 +221,14 @@ export const db = {
     },
 
     async deleteStore(id) {
-        // Cascade delete should handle orders and visits if configured in DB.
-        // Assuming DB uses ON DELETE CASCADE.
         const { error } = await supabase.from('stores').delete().eq('id', id)
         if (error) throw error
     },
 
     async searchStores(query) {
-        // Ensure query is safe and basic cleaning
         const q = query.trim();
         if (!q) return [];
 
-        // Search in multiple columns using ILIKE
-        // Note: Supabase 'or' syntax: col.ilike.%val%,col2.ilike.%val%
         const searchPattern = `name.ilike.%${q}%,address.ilike.%${q}%,phone.ilike.%${q}%,seller_name.ilike.%${q}%`;
 
         const { data, error } = await supabase
@@ -228,11 +240,10 @@ export const db = {
             `)
             .or(searchPattern)
             .order('created_at', { ascending: false })
-            .limit(100); // Limit search results to 100 for now
+            .limit(100);
 
         if (error) throw error
 
-        // Sort nested as usual
         if (data) {
              data.forEach(store => {
                  if (store.visit_logs) store.visit_logs.sort((a, b) => new Date(b.visited_at) - new Date(a.visited_at))
@@ -246,7 +257,6 @@ export const db = {
         const now = new Date();
         const nowISO = now.toISOString();
 
-        // 1. Update store's last_visit timestamp
         const { error: storeError } = await supabase
             .from('stores')
             .update({ last_visit: nowISO, visited: true })
@@ -254,13 +264,11 @@ export const db = {
 
         if (storeError) throw storeError
 
-        // 2. Insert or Update visit_logs (One per day)
         const todayStart = new Date(now);
         todayStart.setHours(0, 0, 0, 0);
         const todayEnd = new Date(now);
         todayEnd.setHours(23, 59, 59, 999);
 
-        // Check for existing log today
         const { data: existingLogs, error: fetchError } = await supabase
             .from('visit_logs')
             .select('id')
@@ -272,14 +280,12 @@ export const db = {
         if (fetchError) throw fetchError;
 
         if (existingLogs && existingLogs.length > 0) {
-            // Update existing
             const { error: updateError } = await supabase
                 .from('visit_logs')
                 .update({ visited_at: nowISO })
                 .eq('id', existingLogs[0].id);
             if (updateError) throw updateError;
         } else {
-            // Insert new
             const { error: insertError } = await supabase
                 .from('visit_logs')
                 .insert([{ store_id: storeId, visited_at: nowISO }]);
@@ -304,7 +310,6 @@ export const db = {
     },
 
     async clearVisit(storeId) {
-        // Just clear the visual state (last_visit = null)
         const { error } = await supabase
             .from('stores')
             .update({ last_visit: null, visited: false })
@@ -314,7 +319,7 @@ export const db = {
     },
 
     async resetDailyVisits() {
-        const { error } = await supabase.from('stores').update({ visited: false }).neq('id', 0) // Update all
+        const { error } = await supabase.from('stores').update({ visited: false }).neq('id', 0)
         if (error) throw error
     },
 
@@ -354,7 +359,7 @@ export const db = {
                 *,
                 store:stores(name, region)
             `)
-            .order('visit_date', { ascending: true }) // Sort by date ascending (closest first)
+            .order('visit_date', { ascending: true })
 
         if (error) throw error
         return data
@@ -384,13 +389,7 @@ export const db = {
     },
 
     // --- Import / Restore ---
-
     async importData(data) {
-        // Data contains { regions, products, stores, orders }
-        // We use 'upsert' to insert or update based on ID.
-
-        // 1. Regions
-        // Fix: Deduplicate by name if ID is missing (legacy backup)
         if (data.regions && data.regions.length > 0) {
             const existing = await this.getRegions();
             const regionsToUpsert = data.regions.map(r => {
@@ -404,8 +403,6 @@ export const db = {
             if (error) console.error('Error importing regions:', error);
         }
 
-        // 2. Products
-        // Fix: Deduplicate by name if ID is missing
         if (data.products && data.products.length > 0) {
             const existing = await this.getProducts();
             const productsToUpsert = data.products.map(p => {
@@ -419,16 +416,13 @@ export const db = {
             if (error) console.error('Error importing products:', error);
         }
 
-        // 3. Stores
-        // We must remove fields that are not columns if any (like 'orders' if not cleaned)
         if (data.stores && data.stores.length > 0) {
             const storesToInsert = data.stores.map(s => {
-                // Ensure only valid columns
                 return {
                     id: s.id,
                     name: s.name,
                     description: s.description,
-                    seller_name: s.seller_name || s.sellerName, // Handle camelCase legacy
+                    seller_name: s.seller_name || s.sellerName,
                     address: s.address,
                     phone: s.phone,
                     region: s.region,
@@ -442,22 +436,20 @@ export const db = {
             if (error) console.error('Error importing stores:', error);
         }
 
-        // 4. Orders
         if (data.orders && data.orders.length > 0) {
              const ordersToInsert = data.orders.map(o => {
                 return {
                     id: o.id,
-                    store_id: o.store_id || o.storeId, // Legacy mapping
+                    store_id: o.store_id || o.storeId,
                     date: o.date,
                     text: o.text,
-                    items: o.items // JSONB
+                    items: o.items
                 };
             });
             const { error } = await supabase.from('orders').upsert(ordersToInsert, { onConflict: 'id' });
             if (error) console.error('Error importing orders:', error);
         }
 
-        // 5. Visits
         if (data.visits && data.visits.length > 0) {
             const visitsToInsert = data.visits.map(v => {
                 return {
@@ -473,7 +465,6 @@ export const db = {
             if (error) console.error('Error importing visits:', error);
         }
 
-        // 6. Visit Logs
         if (data.visit_logs && data.visit_logs.length > 0) {
              const logsToInsert = data.visit_logs.map(l => {
                  return {
