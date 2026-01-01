@@ -298,17 +298,10 @@ export const db = {
         } catch (err) {
             // Fallback for missing column 'visit_type'
             if (err.code === '42703' || err.message.includes('visit_type')) {
+                // Signal to App that schema is outdated
+                document.dispatchEvent(new CustomEvent('db-schema-error'));
+
                 console.warn('DB schema missing visit_type column. Falling back to legacy insert/update.');
-
-                // Append type info to note if possible (Need to read note first? No, simple update)
-                // We don't read 'note' here, so we might overwrite it?
-                // Legacy 'logVisit' didn't touch 'note'.
-                // But we want to indicate "Phone Visit" if schema is old.
-                // We can't easily append without reading.
-                // Let's just do legacy update without touching note, but maybe log a warning.
-                // OR: Try to set `note` to 'ویزیت تلفنی' if it's null?
-                // Too complex for fallback. Just ensure it doesn't crash.
-
                 if (existingLogs && existingLogs.length > 0) {
                     const { data, error: fallbackUpdateError } = await supabase
                         .from('visit_logs')
@@ -329,7 +322,6 @@ export const db = {
                 }
 
                 // Hack: Manually attach visit_type to resultData so UI updates correctly locally
-                // even if DB didn't save it.
                 if (resultData) {
                     resultData.visit_type = visitType;
                 }

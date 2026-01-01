@@ -4,24 +4,47 @@ export const StoreCard = {
     create(store, isVisited) {
         const { escapeHtml, daysMap, idealTimeMap } = Utils;
         const currentDayIndex = new Date().getDay();
+        const todayStr = new Date().toISOString().slice(0, 10);
 
         // Check if recently visited by phone (e.g. today)
-        // We need logic to check 'visit_logs' for type='phone' today?
-        // Current 'isVisited' logic relies on 'store.last_visit' and 'store.visited'.
-        // If we add 'last_visit_type', we could know.
-        // Or we check `store.visit_logs` if available.
-        // Assuming we rely on a hypothetical 'isPhoneVisited' passed or calculated?
-        // For simplicity, let's assume client-side doesn't track phone-visit state persistently in the card *view* yet,
-        // UNLESS we check logs.
-        // But `store` object has nested `visit_logs`.
         let isPhoneVisited = false;
+        // Check if recently visited physically (e.g. within 7 days or today specific check if needed)
+        // Note: isVisited parameter passed to create() is based on `store.last_visit` window.
+        // We should refine it to exclude phone visits if we want separate states.
+        // If `store.last_visit` is today, and `store.visit_logs` has a phone log today,
+        // does `last_visit` represent the phone visit? Yes.
+        // So `isVisited` (7 days) might be true because of a phone visit.
+        // We want the physical toggle to be ON only if there is a PHYSICAL visit (or untyped).
+
+        let isPhysicalVisited = false;
+
         if (store.visit_logs && store.visit_logs.length > 0) {
-            const todayStr = new Date().toISOString().slice(0, 10);
-            // Check if any log is today AND type is phone
+            // Check for phone visit today
             const phoneLog = store.visit_logs.find(l =>
                 l.visited_at.startsWith(todayStr) && l.visit_type === 'phone'
             );
             if (phoneLog) isPhoneVisited = true;
+
+            // Check for physical visit within 7 days
+            // We use the same 7-day logic as the filter/main logic but filter by type
+            const now = new Date();
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+            // Find any log that is 'physical' (or null/undefined for legacy) and recent
+            const physicalLog = store.visit_logs.find(l => {
+                const logDate = new Date(l.visited_at);
+                const isRecent = logDate >= sevenDaysAgo && logDate <= now; // Approximate
+                // Check type
+                const isPhysical = !l.visit_type || l.visit_type === 'physical';
+                return isRecent && isPhysical;
+            });
+
+            if (physicalLog) isPhysicalVisited = true;
+        } else {
+            // Fallback if no logs (legacy data or just `last_visit` field present)
+            // If `isVisited` (based on last_visit) is true, and we have NO logs, assume physical.
+            if (isVisited) isPhysicalVisited = true;
         }
 
         // Day Badge Logic
@@ -46,8 +69,9 @@ export const StoreCard = {
         const cardContainer = document.createElement('div');
         cardContainer.className = 'col-md-6 col-lg-4';
 
+        // Use updated isPhysicalVisited
         cardContainer.innerHTML = `
-            <div class="card h-100 store-card ${isVisited ? 'visited' : ''}">
+            <div class="card h-100 store-card ${isPhysicalVisited ? 'visited' : ''}">
                 <div class="card-body p-2 d-flex flex-column">
                     <!-- Header -->
                     <div class="d-flex justify-content-between align-items-start mb-2 fixed-height-header">
@@ -60,7 +84,7 @@ export const StoreCard = {
                         <div class="text-center d-flex flex-column gap-1 align-items-end">
                              <!-- Physical Visit -->
                              <div class="form-check form-switch d-inline-block" title="ویزیت حضوری">
-                                 <input class="form-check-input" type="checkbox" ${isVisited ? 'checked' : ''} data-action="toggle-visit" data-store-id="${store.id}" style="width: 2.5em; height: 1.25em;">
+                                 <input class="form-check-input" type="checkbox" ${isPhysicalVisited ? 'checked' : ''} data-action="toggle-visit" data-store-id="${store.id}" style="width: 2.5em; height: 1.25em;">
                              </div>
                              <!-- Phone Visit -->
                              <div class="form-check form-switch d-inline-block" title="ویزیت تلفنی">
