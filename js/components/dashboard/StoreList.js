@@ -104,6 +104,29 @@ export const StoreList = {
         const checked = input.checked;
         const store = state.data.stores.find(s => s.id == id);
 
+        // Helper to update local logs
+        const updateLocalLogs = (newLog) => {
+            if (!store) return;
+            if (!store.visit_logs) store.visit_logs = [];
+
+            // Check if log with same ID exists (update) or push new
+            // Note: `logVisit` returns the full record.
+            const existingIndex = store.visit_logs.findIndex(l => l.id === newLog.id);
+            if (existingIndex >= 0) {
+                store.visit_logs[existingIndex] = newLog;
+            } else {
+                // If it's a new log for today, we might have replaced an old one in DB logic?
+                // DB logic: Update if found for today.
+                // So the returned log has the ID of the existing one if updated.
+                // But local state might have the old version.
+                // If we found it by ID, we replaced it.
+                // If ID is new, we push it.
+                store.visit_logs.unshift(newLog); // Add to top
+            }
+            // Sort?
+            store.visit_logs.sort((a, b) => new Date(b.visited_at) - new Date(a.visited_at));
+        };
+
         if (action === 'toggle-visit') {
             // Optimistic update
             if (store) {
@@ -112,9 +135,21 @@ export const StoreList = {
             }
             try {
                 if (checked) {
-                    await db.logVisit(id, 'physical');
+                    const log = await db.logVisit(id, 'physical');
+                    if (log) updateLocalLogs(log);
                 } else {
                     await db.clearVisit(id);
+                    // Also clear local log state?
+                    // `clearVisit` in DB only updates store `last_visit`. It does NOT delete logs.
+                    // So we keep the log? User just unchecked the "Visited" status.
+                    // If they want to delete log, they do it in details.
+                    // But `toggle-phone-visit` logic below explicitly deletes log.
+                    // Consistency issue?
+                    // User requirement: "Check box... saved".
+                    // If unchecked, "visited" status is cleared. Log remains as history?
+                    // `db.clearVisit` implementation: update stores set last_visit=null.
+                    // It does NOT touch visit_logs.
+                    // So we don't remove log locally.
                 }
             } catch (error) {
                 console.error(error);
@@ -127,34 +162,25 @@ export const StoreList = {
             }
         }
         else if (action === 'toggle-phone-visit') {
-            // Optimistic? Phone visit usually implies visited.
-            // But we don't have a specific "phone_visited" field on store,
-            // except we use 'last_visit' for general recency.
-            // If checked, we log 'phone'.
-            // If unchecked, we might need to delete the log?
-            // "Toggle" implies on/off state for TODAY.
-            // If we check it, we log a phone visit for today.
-            // If we uncheck it, we should probably delete the phone visit log for today.
-
             try {
                 if (checked) {
-                    await db.logVisit(id, 'phone');
-                    // Also update store visual state if we want phone visit to count as "Visited"
-                    // User requirement: "Status... saved in details".
-                    // But usually any contact counts as visit.
-                    // Let's assume it counts for `last_visit`.
+                    const log = await db.logVisit(id, 'phone');
                     if (store) {
                         store.visited = true;
                         store.last_visit = new Date().toISOString();
-                        // Also visually update the physical toggle if it wasn't checked?
-                        // Maybe keep them independent but both update last_visit.
                     }
+                    if (log) updateLocalLogs(log);
                 } else {
                     // Remove phone visit log for today
                     await db.clearVisitLogByType(id, 'phone');
-                    // We don't necessarily clear `last_visit` because physical visit might still be there.
-                    // Complex logic: check if other logs exist today.
-                    // For MVP, just remove the log.
+
+                    // Remove from local state
+                    if (store && store.visit_logs) {
+                        const todayStr = new Date().toISOString().slice(0, 10);
+                        store.visit_logs = store.visit_logs.filter(l =>
+                            !(l.visited_at.startsWith(todayStr) && l.visit_type === 'phone')
+                        );
+                    }
                 }
             } catch (error) {
                 console.error(error);

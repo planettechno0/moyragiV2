@@ -269,42 +269,60 @@ export const db = {
 
         if (fetchError) throw fetchError;
 
+        let resultData = null;
+
         try {
             if (existingLogs && existingLogs.length > 0) {
                 // Update existing
                 const log = existingLogs[0];
-                const { error: updateError } = await supabase
+                const { data, error: updateError } = await supabase
                     .from('visit_logs')
                     .update({ visited_at: nowISO, visit_type: visitType })
-                    .eq('id', log.id);
+                    .eq('id', log.id)
+                    .select()
+                    .single();
+
                 if (updateError) throw updateError;
+                resultData = data;
             } else {
                 // Insert new
-                const { error: insertError } = await supabase
+                const { data, error: insertError } = await supabase
                     .from('visit_logs')
-                    .insert([{ store_id: storeId, visited_at: nowISO, visit_type: visitType }]);
+                    .insert([{ store_id: storeId, visited_at: nowISO, visit_type: visitType }])
+                    .select()
+                    .single();
+
                 if (insertError) throw insertError;
+                resultData = data;
             }
         } catch (err) {
-            // Fallback for missing column 'visit_type' (Backward Compatibility)
+            // Fallback for missing column 'visit_type'
             if (err.code === '42703' || err.message.includes('visit_type')) {
                 console.warn('DB schema missing visit_type column. Falling back to legacy insert/update.');
                 if (existingLogs && existingLogs.length > 0) {
-                    const { error: fallbackUpdateError } = await supabase
+                    const { data, error: fallbackUpdateError } = await supabase
                         .from('visit_logs')
                         .update({ visited_at: nowISO }) // Omit visit_type
-                        .eq('id', existingLogs[0].id);
+                        .eq('id', existingLogs[0].id)
+                        .select()
+                        .single();
                     if (fallbackUpdateError) throw fallbackUpdateError;
+                    resultData = data;
                 } else {
-                    const { error: fallbackInsertError } = await supabase
+                    const { data, error: fallbackInsertError } = await supabase
                         .from('visit_logs')
-                        .insert([{ store_id: storeId, visited_at: nowISO }]); // Omit visit_type
+                        .insert([{ store_id: storeId, visited_at: nowISO }]) // Omit visit_type
+                        .select()
+                        .single();
                     if (fallbackInsertError) throw fallbackInsertError;
+                    resultData = data;
                 }
             } else {
                 throw err;
             }
         }
+
+        return resultData;
     },
 
     async clearVisitLogByType(storeId, type) {
@@ -333,12 +351,6 @@ export const db = {
                 }
             }
         } catch (err) {
-             // Fallback if select * failed due to visit_type missing?
-             // Select * usually selects all columns that exist.
-             // If visit_type doesn't exist, log.visit_type will be undefined.
-             // So log.visit_type === type will be false.
-             // Fallback logic 'type === physical && !log.visit_type' will catch it.
-             // But if specific error occurs, just log it.
              console.error('Error clearing visit log:', err);
         }
     },
