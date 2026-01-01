@@ -116,6 +116,15 @@ alter table visit_logs enable row level security;
 drop policy if exists "Public visit_logs" on visit_logs;
 create policy "Public visit_logs" on visit_logs for all using (true);
 
+-- Schema Updates (Migrations)
+-- Ensure 'visit_type' exists if table was already created
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_name = 'visit_logs' and column_name = 'visit_type') then
+    alter table visit_logs add column visit_type text default 'physical';
+  end if;
+end $$;
+
 -- Indexes
 create index if not exists idx_stores_region on stores(region);
 create index if not exists idx_visit_logs_store_id on visit_logs(store_id);
