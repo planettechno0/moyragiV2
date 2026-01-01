@@ -44,8 +44,41 @@ const App = {
         document.addEventListener('visit-log-updated', (e) => {
              this.refreshData();
         });
+
+        // Listen for DB Schema Error
+        document.addEventListener('db-schema-error', () => {
+            // Show toast with button to open settings
+            const container = document.getElementById('toastContainer');
+            const id = 'toast-db-' + Date.now();
+            const toastHtml = `
+                <div id="${id}" class="toast align-items-center text-bg-warning border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="d-flex">
+                        <div class="toast-body">
+                            قابلیت ویزیت تلفنی نیاز به آپدیت دیتابیس دارد.
+                            <button class="btn btn-sm btn-dark ms-2" onclick="document.dispatchEvent(new CustomEvent('open-sql-modal'))">مشاهده کد</button>
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', toastHtml);
+            const toastEl = document.getElementById(id);
+            const toast = new bootstrap.Toast(toastEl, { delay: 10000 }); // Longer delay
+            toast.show();
+            toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+        });
+
+        // Helper event to open SQL modal from Toast button (since onclick string scope is global window)
+        // We attach listener to document to handle this custom event or direct call?
+        // Inline onclick `document.dispatchEvent` works.
+        document.addEventListener('open-sql-modal', () => {
+            // Open Settings Modal first, then SQL Modal? Or just SQL Modal.
+            // SQL Modal is standalone `sqlModal`.
+            SettingsModal.showSqlModal();
+        });
     },
 
+    // ... (rest of the file remains same)
     setupNavigation() {
         const views = {
             'dashboard': DashboardView,
@@ -318,7 +351,7 @@ const App = {
 
         new bootstrap.Modal(document.getElementById('storeDetailsModal')).show();
     },
-    // ... rest of methods
+
     showDailySales() {
          const todayJalaali = dateUtils.toJalaali(new Date());
          const todayLocale = new Date().toLocaleDateString('fa-IR');
