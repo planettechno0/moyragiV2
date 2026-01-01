@@ -124,17 +124,7 @@ const App = {
 
     async loadInitialData() {
         try {
-            try {
-                const cachedRegions = localStorage.getItem('bolt_regions');
-                const products = localStorage.getItem('bolt_products');
-                if (cachedRegions && products) {
-                     state.data.regions = JSON.parse(cachedRegions);
-                     state.data.products = JSON.parse(products);
-                     RegionManager.render();
-                     ProductManager.render();
-                }
-            } catch (e) { console.warn('Cache load failed', e); }
-
+            // Disabled LocalStorage Cache to ensure DB synchronization
             let regions = [], products = [];
             try {
                 [regions, products] = await Promise.all([
@@ -152,8 +142,7 @@ const App = {
             state.data.regions = regions || [];
             state.data.products = products || [];
 
-            localStorage.setItem('bolt_regions', JSON.stringify(state.data.regions));
-            localStorage.setItem('bolt_products', JSON.stringify(state.data.products));
+            // Removed localStorage writes
 
             try {
                 state.data.visits = await db.getVisits() || [];
