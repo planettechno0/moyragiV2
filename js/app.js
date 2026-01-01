@@ -38,11 +38,34 @@ const App = {
         this.setupGlobalDelegation();
         this.setupBackupHandlers();
 
+        // Handle "Data Refresh" Button
+        document.getElementById('refreshDataBtn').addEventListener('click', async (e) => {
+            e.preventDefault();
+            const btn = e.currentTarget;
+            const icon = btn.querySelector('i');
+            icon.classList.add('spin-anim'); // Add simple rotation class if style allows, or just ignore animation
+            try {
+                await this.refreshData();
+                Toast.show('اطلاعات بروزرسانی شد', 'success');
+            } catch (err) {
+                console.error(err);
+                Toast.show('خطا در بروزرسانی', 'error');
+            } finally {
+                icon.classList.remove('spin-anim');
+            }
+        });
+
         document.addEventListener('data-change', async () => {
              await this.refreshData();
         });
+
+        // New event for non-fetching UI updates
+        document.addEventListener('view-update', () => {
+             this.updateViews();
+        });
+
         document.addEventListener('visit-log-updated', (e) => {
-             this.refreshData();
+             this.refreshData(); // Log updates usually don't need full refresh but keeping for safety
         });
 
         // Listen for DB Schema Error
@@ -157,11 +180,23 @@ const App = {
         await this.loadInitialData();
         state.resetPagination();
         await import('./components/dashboard/StoreList.js').then(m => m.StoreList.loadChunk(false));
+        this.updateViews();
+    },
+
+    updateViews() {
         if (!document.getElementById('managementView').classList.contains('d-none')) {
             import('./components/management/StoreTable.js').then(m => m.StoreTable.render());
         }
         if (!document.getElementById('ordersView').classList.contains('d-none')) {
             OrdersView.render();
+        }
+        // Dashboard is updated by loadChunk/StoreList logic usually, but if we have local updates:
+        if (!document.getElementById('dashboardView').classList.contains('d-none')) {
+             // If we didn't just loadChunk (e.g. view-update event), we might want to re-render cards
+             // import('./components/dashboard/StoreList.js').then(m => m.StoreList.render());
+             // But StoreList.render() uses state.data.stores.
+             // If local state changed, this is correct.
+             import('./components/dashboard/StoreList.js').then(m => m.StoreList.render());
         }
     },
 

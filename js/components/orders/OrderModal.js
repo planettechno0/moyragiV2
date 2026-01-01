@@ -107,22 +107,58 @@ export const OrderModal = {
         };
 
         try {
+            let savedOrder = null;
             if (orderId) {
-                await db.updateOrder(orderId, orderData);
+                savedOrder = await db.updateOrder(orderId, orderData);
             } else {
-                await db.addOrder(storeId, orderData);
+                savedOrder = await db.addOrder(storeId, orderData);
             }
+
+            // Optimistic / Local Update
+            if (savedOrder) {
+                const store = state.data.stores.find(s => s.id == storeId);
+                if (store) {
+                    if (!store.orders) store.orders = [];
+
+                    if (orderId) {
+                        const idx = store.orders.findIndex(o => o.id == orderId);
+                        if (idx >= 0) {
+                            store.orders[idx] = savedOrder;
+                        }
+                    } else {
+                        store.orders.unshift(savedOrder);
+                    }
+                    store.orders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                }
+            }
+
             bootstrap.Modal.getInstance(document.getElementById('orderModal')).hide();
 
-            document.dispatchEvent(new Event('data-change'));
+            // Dispatch view-update instead of data-change to avoid full reset
+            document.dispatchEvent(new Event('view-update'));
+            Toast.show('سفارش با موفقیت ثبت شد', 'success');
 
         } catch (e) { console.error(e); alert('خطا در ثبت سفارش'); }
     },
 
     async delete(orderId) {
         if (confirm('سفارش حذف شود؟')) {
-            await db.deleteOrder(orderId);
-            document.dispatchEvent(new Event('data-change'));
+            try {
+                await db.deleteOrder(orderId);
+
+                // Local update
+                state.data.stores.forEach(s => {
+                    if (s.orders) {
+                        s.orders = s.orders.filter(o => o.id != orderId);
+                    }
+                });
+
+                document.dispatchEvent(new Event('view-update'));
+                Toast.show('سفارش حذف شد', 'success');
+            } catch (e) {
+                console.error(e);
+                Toast.show('خطا در حذف سفارش', 'error');
+            }
         }
     },
 
