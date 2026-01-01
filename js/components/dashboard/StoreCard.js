@@ -64,7 +64,7 @@ export const StoreCard = {
                              </div>
                              <!-- Phone Visit -->
                              <div class="form-check form-switch d-inline-block" title="ویزیت تلفنی">
-                                 <input class="form-check-input bg-warning border-warning" type="checkbox" ${isPhoneVisited ? 'checked' : ''} data-action="toggle-phone-visit" data-store-id="${store.id}" style="width: 2.5em; height: 1.25em;">
+                                 <input class="form-check-input phone-visit-toggle" type="checkbox" ${isPhoneVisited ? 'checked' : ''} data-action="toggle-phone-visit" data-store-id="${store.id}" style="width: 2.5em; height: 1.25em;">
                              </div>
                         </div>
                     </div>
