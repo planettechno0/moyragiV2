@@ -47,6 +47,9 @@ create table if not exists visits (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
+-- Update Visit Logs Table
+alter table visit_logs add column if not exists visit_type text default 'physical';
+
 alter table visits enable row level security;
 
 create policy "Users can view their own visits"

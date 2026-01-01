@@ -5,6 +5,25 @@ export const StoreCard = {
         const { escapeHtml, daysMap, idealTimeMap } = Utils;
         const currentDayIndex = new Date().getDay();
 
+        // Check if recently visited by phone (e.g. today)
+        // We need logic to check 'visit_logs' for type='phone' today?
+        // Current 'isVisited' logic relies on 'store.last_visit' and 'store.visited'.
+        // If we add 'last_visit_type', we could know.
+        // Or we check `store.visit_logs` if available.
+        // Assuming we rely on a hypothetical 'isPhoneVisited' passed or calculated?
+        // For simplicity, let's assume client-side doesn't track phone-visit state persistently in the card *view* yet,
+        // UNLESS we check logs.
+        // But `store` object has nested `visit_logs`.
+        let isPhoneVisited = false;
+        if (store.visit_logs && store.visit_logs.length > 0) {
+            const todayStr = new Date().toISOString().slice(0, 10);
+            // Check if any log is today AND type is phone
+            const phoneLog = store.visit_logs.find(l =>
+                l.visited_at.startsWith(todayStr) && l.visit_type === 'phone'
+            );
+            if (phoneLog) isPhoneVisited = true;
+        }
+
         // Day Badge Logic
         let dayBadge = '';
         if (store.visit_days && store.visit_days.length > 0) {
@@ -38,9 +57,14 @@ export const StoreCard = {
                                  ${escapeHtml(store.region)} <i class="bi bi-pencil-fill small ms-1" style="font-size: 0.7em;"></i>
                             </button>
                         </div>
-                        <div class="text-center">
-                             <div class="form-check form-switch d-inline-block">
+                        <div class="text-center d-flex flex-column gap-1 align-items-end">
+                             <!-- Physical Visit -->
+                             <div class="form-check form-switch d-inline-block" title="ویزیت حضوری">
                                  <input class="form-check-input" type="checkbox" ${isVisited ? 'checked' : ''} data-action="toggle-visit" data-store-id="${store.id}" style="width: 2.5em; height: 1.25em;">
+                             </div>
+                             <!-- Phone Visit -->
+                             <div class="form-check form-switch d-inline-block" title="ویزیت تلفنی">
+                                 <input class="form-check-input bg-warning border-warning" type="checkbox" ${isPhoneVisited ? 'checked' : ''} data-action="toggle-phone-visit" data-store-id="${store.id}" style="width: 2.5em; height: 1.25em;">
                              </div>
                         </div>
                     </div>

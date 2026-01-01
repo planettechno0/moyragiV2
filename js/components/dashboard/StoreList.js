@@ -12,26 +12,12 @@ export const StoreList = {
         if (loadingSpinner && loadingSpinner.parentNode) loadingSpinner.parentNode.classList.remove('d-none');
         if (loadingSpinner && state.pagination.page > 0) loadingSpinner.classList.remove('d-none');
 
-        // Gather Filters
         const filters = {
             region: document.getElementById('filterRegion').value,
             purchaseProb: document.getElementById('filterProb').value,
             visitStatus: document.getElementById('filterVisitStatus').value,
             day: document.getElementById('filterDay').value
         };
-
-        // Search Query is handled by SearchBar separate logic usually,
-        // but if we want mixed filtering + search, we need a unified approach.
-        // Currently `SearchBar.handleSearch` calls `db.searchStores` which is text-only.
-        // To combine, `db.getStores` needs a search param or `db.searchStores` needs filters.
-        // For now, let's assume Filters apply to the main list, and Search is a separate mode.
-        // If Search is active (input not empty), we might ignore filters or we need to update `db.searchStores`.
-        // The user requirement was "Client-side Filtering on Partial Data" -> "Server-side".
-        // Let's stick to `getStores` using filters. `handleSearch` uses `db.searchStores`.
-        // If search input has text, we should probably use `searchStores`?
-        // But `searchStores` in `db.js` doesn't support other filters yet.
-        // For simplicity and scope, I will implement filtering for the main list (no text search).
-        // Text search remains separate mode.
 
         try {
             const newStores = await db.getStores(state.pagination.page, state.pagination.pageSize, filters);
@@ -46,7 +32,7 @@ export const StoreList = {
                 state.data.stores = newStores;
             }
 
-            this.render(append ? newStores : null); // Pass only new stores if appending, or null to render all
+            this.render(append ? newStores : null);
 
             state.pagination.page++;
         } catch (error) {
@@ -62,14 +48,13 @@ export const StoreList = {
         const emptyState = document.getElementById('emptyState');
         const loadMoreContainer = document.getElementById('loadMoreContainer');
 
-        // Remove initial spinner if it exists
         const initialSpinner = container.querySelector('.spinner-border');
         if (initialSpinner && initialSpinner.parentElement && initialSpinner.parentElement.classList.contains('text-center')) {
              container.innerHTML = '';
         }
 
         if (!newStoresOnly) {
-            container.innerHTML = ''; // Clear if full render
+            container.innerHTML = '';
         }
 
         const storesToRender = newStoresOnly || state.data.stores;
@@ -112,30 +97,69 @@ export const StoreList = {
     // Toggle handling
     async handleStoreToggle(e) {
         const input = e.target;
-        if (!input.classList.contains('form-check-input') || input.dataset.action !== 'toggle-visit') return;
+        if (!input.classList.contains('form-check-input')) return;
 
+        const action = input.dataset.action;
         const id = input.dataset.storeId;
-        const visited = input.checked;
-
+        const checked = input.checked;
         const store = state.data.stores.find(s => s.id == id);
-        if (store) {
-             store.visited = visited;
-             store.last_visit = visited ? new Date().toISOString() : null;
-        }
 
-        try {
-            if (visited) {
-                await db.logVisit(id);
-            } else {
-                await db.clearVisit(id);
-            }
-        } catch (error) {
-            console.error(error);
-            Toast.show('خطا در ثبت وضعیت', 'error');
-            input.checked = !visited;
+        if (action === 'toggle-visit') {
+            // Optimistic update
             if (store) {
-                 store.visited = !visited;
-                 store.last_visit = !visited ? new Date().toISOString() : null;
+                 store.visited = checked;
+                 store.last_visit = checked ? new Date().toISOString() : null;
+            }
+            try {
+                if (checked) {
+                    await db.logVisit(id, 'physical');
+                } else {
+                    await db.clearVisit(id);
+                }
+            } catch (error) {
+                console.error(error);
+                Toast.show('خطا در ثبت وضعیت', 'error');
+                input.checked = !checked; // Revert
+                if (store) {
+                     store.visited = !checked;
+                     store.last_visit = !checked ? new Date().toISOString() : null;
+                }
+            }
+        }
+        else if (action === 'toggle-phone-visit') {
+            // Optimistic? Phone visit usually implies visited.
+            // But we don't have a specific "phone_visited" field on store,
+            // except we use 'last_visit' for general recency.
+            // If checked, we log 'phone'.
+            // If unchecked, we might need to delete the log?
+            // "Toggle" implies on/off state for TODAY.
+            // If we check it, we log a phone visit for today.
+            // If we uncheck it, we should probably delete the phone visit log for today.
+
+            try {
+                if (checked) {
+                    await db.logVisit(id, 'phone');
+                    // Also update store visual state if we want phone visit to count as "Visited"
+                    // User requirement: "Status... saved in details".
+                    // But usually any contact counts as visit.
+                    // Let's assume it counts for `last_visit`.
+                    if (store) {
+                        store.visited = true;
+                        store.last_visit = new Date().toISOString();
+                        // Also visually update the physical toggle if it wasn't checked?
+                        // Maybe keep them independent but both update last_visit.
+                    }
+                } else {
+                    // Remove phone visit log for today
+                    await db.clearVisitLogByType(id, 'phone');
+                    // We don't necessarily clear `last_visit` because physical visit might still be there.
+                    // Complex logic: check if other logs exist today.
+                    // For MVP, just remove the log.
+                }
+            } catch (error) {
+                console.error(error);
+                Toast.show('خطا در ثبت ویزیت تلفنی', 'error');
+                input.checked = !checked;
             }
         }
     }

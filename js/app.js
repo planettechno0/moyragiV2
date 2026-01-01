@@ -17,48 +17,32 @@ import { backupToJSON, parseJSONBackup } from './services/backup.js';
 import { Utils } from './components/shared/Utils.js';
 import { dateUtils } from './services/date_utils.js';
 
-// Telegram sending logic needs to be moved to a service or component.
-// Since it uses UI elements (buttons), let's keep it in a helper or move it.
-// I'll add a simple helper here or keep it in App for now as it's "Action" logic.
-
 const App = {
     async init() {
-        // Auth check happens in main.js usually, but here we can setup listeners
         document.getElementById('logoutBtn').addEventListener('click', async () => {
             await auth.logout();
         });
 
-        // Initialize Components
-        DashboardView.init(); // Sets up listeners and loads initial chunk
+        DashboardView.init();
         OrdersView.initListeners();
         VisitModal.initListeners();
         OrderModal.initListeners();
         SettingsModal.initListeners();
         AddStoreModal.initListeners();
 
-        // Settings / Add buttons
         document.getElementById('addRegionBtn').addEventListener('click', () => RegionManager.add());
         document.getElementById('addProductBtn').addEventListener('click', () => ProductManager.add());
 
-        // Navigation
         this.setupNavigation();
-
-        // Data Load
         await this.loadInitialData();
-
-        // Global Event Listeners (Delegation)
         this.setupGlobalDelegation();
-
-        // Import/Export
         this.setupBackupHandlers();
 
-        // Custom events
         document.addEventListener('data-change', async () => {
              await this.refreshData();
         });
         document.addEventListener('visit-log-updated', (e) => {
-             // If needed to refresh specific parts
-             this.refreshData(); // brute force refresh
+             this.refreshData();
         });
     },
 
@@ -73,10 +57,6 @@ const App = {
             Object.values(views).forEach(v => v.hide());
             if (views[viewName]) {
                 views[viewName].show();
-                // Special case for Management
-                if (viewName === 'management') {
-                    // Refresh stats maybe?
-                }
             }
         };
 
@@ -91,7 +71,6 @@ const App = {
 
     async loadInitialData() {
         try {
-            // Optimization: Load from cache first
             try {
                 const cachedRegions = localStorage.getItem('bolt_regions');
                 const products = localStorage.getItem('bolt_products');
@@ -103,7 +82,6 @@ const App = {
                 }
             } catch (e) { console.warn('Cache load failed', e); }
 
-            // Fetch Fresh
             let regions = [], products = [];
             try {
                 [regions, products] = await Promise.all([
@@ -121,7 +99,6 @@ const App = {
             state.data.regions = regions || [];
             state.data.products = products || [];
 
-            // Update Cache
             localStorage.setItem('bolt_regions', JSON.stringify(state.data.regions));
             localStorage.setItem('bolt_products', JSON.stringify(state.data.products));
 
@@ -138,7 +115,6 @@ const App = {
             ProductManager.render();
             VisitList.render();
 
-            // Check notifications
             this.checkVisitNotifications();
 
         } catch (error) {
@@ -149,12 +125,8 @@ const App = {
 
     async refreshData() {
         await this.loadInitialData();
-        // Reload stores depending on view?
-        // Since we have pagination, full reload clears it.
-        // Let's just re-render visible stuff.
         state.resetPagination();
-        await import('./components/dashboard/StoreList.js').then(m => m.StoreList.loadChunk());
-        // Also update Management table if visible
+        await import('./components/dashboard/StoreList.js').then(m => m.StoreList.loadChunk(false));
         if (!document.getElementById('managementView').classList.contains('d-none')) {
             import('./components/management/StoreTable.js').then(m => m.StoreTable.render());
         }
@@ -226,7 +198,6 @@ const App = {
             const action = btn.dataset.action;
             if (!action) return;
 
-            // Shared actions
             if (action === 'delete-region') RegionManager.delete(btn.dataset.id);
             else if (action === 'delete-product') ProductManager.delete(btn.dataset.id);
             else if (action === 'edit-store') AddStoreModal.open(btn.dataset.storeId);
@@ -311,11 +282,20 @@ const App = {
                  const jalaaliDate = dateUtils.toJalaali(logDate);
                  const timeStr = logDate.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' });
 
+                 // Show visit type icon/badge
+                 let typeBadge = '';
+                 if (log.visit_type === 'phone') {
+                     typeBadge = '<span class="badge bg-warning text-dark me-2">تلفنی</span>';
+                 } else if (log.visit_type === 'physical') {
+                     typeBadge = '<span class="badge bg-info text-dark me-2">حضوری</span>';
+                 }
+
                  const item = document.createElement('div');
                  item.className = 'list-group-item px-0';
                  item.innerHTML = `
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
+                            ${typeBadge}
                             <span class="fw-bold">${jalaaliDate}</span> <span class="small ms-1">${timeStr}</span>
                             ${log.note ? `<div class="small text-primary mt-1">${Utils.escapeHtml(log.note)}</div>` : ''}
                         </div>
@@ -338,7 +318,7 @@ const App = {
 
         new bootstrap.Modal(document.getElementById('storeDetailsModal')).show();
     },
-
+    // ... rest of methods
     showDailySales() {
          const todayJalaali = dateUtils.toJalaali(new Date());
          const todayLocale = new Date().toLocaleDateString('fa-IR');
@@ -374,7 +354,6 @@ const App = {
          new bootstrap.Modal(document.getElementById('dailySalesModal')).show();
     },
 
-    // Telegram Logic (Copied/Adapted from ui.js)
     async handleSendBackupToTelegram() {
         const token = localStorage.getItem('bolt_telegram_token');
         const userId = localStorage.getItem('bolt_telegram_userid');

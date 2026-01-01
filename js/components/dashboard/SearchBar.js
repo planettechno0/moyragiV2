@@ -24,7 +24,7 @@ export const SearchBar = {
             state.data.stores = results;
             state.pagination.hasMore = false;
 
-            StoreList.render();
+            StoreList.render(); // Render full results (clears container)
 
             if (results.length === 0) {
                 statusEl.textContent = 'موردی یافت نشد.';
@@ -43,11 +43,14 @@ export const SearchBar = {
         document.getElementById('searchInput').value = '';
         document.getElementById('searchStatus').classList.add('d-none');
         state.resetPagination();
-        await StoreList.loadChunk();
+        await StoreList.loadChunk(false); // Reset and load fresh
     },
 
     initListeners() {
-        const filterHandler = () => StoreList.render();
+        const filterHandler = () => {
+            state.resetPagination();
+            StoreList.loadChunk(false); // False = clear and reload, not append
+        };
 
         document.getElementById('searchInput').addEventListener('keyup', (e) => {
             if (e.key === 'Enter') this.handleSearch();
@@ -55,9 +58,7 @@ export const SearchBar = {
         });
         document.getElementById('searchBtn').addEventListener('click', () => this.handleSearch());
 
-        document.getElementById('filterDay').addEventListener('change', filterHandler);
-        document.getElementById('filterRegion').addEventListener('change', filterHandler);
-        document.getElementById('filterProb').addEventListener('change', filterHandler);
-        document.getElementById('filterVisitStatus').addEventListener('change', filterHandler);
+        // Only trigger on "Apply" button click
+        document.getElementById('applyFiltersBtn').addEventListener('click', filterHandler);
     }
 };
