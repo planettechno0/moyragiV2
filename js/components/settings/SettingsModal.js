@@ -42,6 +42,7 @@ create table if not exists regions (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 alter table regions enable row level security;
+drop policy if exists "Public regions" on regions;
 create policy "Public regions" on regions for all using (true);
 
 -- 2. Products
@@ -51,6 +52,7 @@ create table if not exists products (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 alter table products enable row level security;
+drop policy if exists "Public products" on products;
 create policy "Public products" on products for all using (true);
 
 -- 3. Stores
@@ -70,6 +72,7 @@ create table if not exists stores (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 alter table stores enable row level security;
+drop policy if exists "Public stores" on stores;
 create policy "Public stores" on stores for all using (true);
 
 -- 4. Orders
@@ -83,6 +86,7 @@ create table if not exists orders (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 alter table orders enable row level security;
+drop policy if exists "Public orders" on orders;
 create policy "Public orders" on orders for all using (true);
 
 -- 5. Visits (Appointments)
@@ -97,6 +101,7 @@ create table if not exists visits (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 alter table visits enable row level security;
+drop policy if exists "Public visits" on visits;
 create policy "Public visits" on visits for all using (true);
 
 -- 6. Visit Logs (History)
@@ -108,6 +113,7 @@ create table if not exists visit_logs (
   visit_type text default 'physical'
 );
 alter table visit_logs enable row level security;
+drop policy if exists "Public visit_logs" on visit_logs;
 create policy "Public visit_logs" on visit_logs for all using (true);
 
 -- Indexes
