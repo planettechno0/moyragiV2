@@ -6,44 +6,35 @@ export const StoreCard = {
         const currentDayIndex = new Date().getDay();
         const todayStr = new Date().toISOString().slice(0, 10);
 
-        // Check if recently visited by phone (e.g. today)
         let isPhoneVisited = false;
-        // Check if recently visited physically (e.g. within 7 days or today specific check if needed)
-        // Note: isVisited parameter passed to create() is based on `store.last_visit` window.
-        // We should refine it to exclude phone visits if we want separate states.
-        // If `store.last_visit` is today, and `store.visit_logs` has a phone log today,
-        // does `last_visit` represent the phone visit? Yes.
-        // So `isVisited` (7 days) might be true because of a phone visit.
-        // We want the physical toggle to be ON only if there is a PHYSICAL visit (or untyped).
-
         let isPhysicalVisited = false;
+
+        // Helper to check note for fallback indicator
+        const isPhoneFallback = (log) => log.note && log.note.includes('(ویزیت تلفنی)');
 
         if (store.visit_logs && store.visit_logs.length > 0) {
             // Check for phone visit today
             const phoneLog = store.visit_logs.find(l =>
-                l.visited_at.startsWith(todayStr) && l.visit_type === 'phone'
+                l.visited_at.startsWith(todayStr) && (l.visit_type === 'phone' || isPhoneFallback(l))
             );
             if (phoneLog) isPhoneVisited = true;
 
             // Check for physical visit within 7 days
-            // We use the same 7-day logic as the filter/main logic but filter by type
             const now = new Date();
             const sevenDaysAgo = new Date();
             sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-            // Find any log that is 'physical' (or null/undefined for legacy) and recent
             const physicalLog = store.visit_logs.find(l => {
                 const logDate = new Date(l.visited_at);
-                const isRecent = logDate >= sevenDaysAgo && logDate <= now; // Approximate
-                // Check type
-                const isPhysical = !l.visit_type || l.visit_type === 'physical';
+                const isRecent = logDate >= sevenDaysAgo && logDate <= now;
+                // Check type: explicit 'physical' OR (missing type AND NOT phone fallback)
+                const isPhysical = l.visit_type === 'physical' || (!l.visit_type && !isPhoneFallback(l));
                 return isRecent && isPhysical;
             });
 
             if (physicalLog) isPhysicalVisited = true;
         } else {
-            // Fallback if no logs (legacy data or just `last_visit` field present)
-            // If `isVisited` (based on last_visit) is true, and we have NO logs, assume physical.
+            // Fallback if no logs (legacy data)
             if (isVisited) isPhysicalVisited = true;
         }
 
@@ -69,7 +60,6 @@ export const StoreCard = {
         const cardContainer = document.createElement('div');
         cardContainer.className = 'col-md-6 col-lg-4';
 
-        // Use updated isPhysicalVisited
         cardContainer.innerHTML = `
             <div class="card h-100 store-card ${isPhysicalVisited ? 'visited' : ''}">
                 <div class="card-body p-2 d-flex flex-column">

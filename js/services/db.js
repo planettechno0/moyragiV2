@@ -261,7 +261,7 @@ export const db = {
 
         const { data: existingLogs, error: fetchError } = await supabase
             .from('visit_logs')
-            .select('id')
+            .select('id, note')
             .eq('store_id', storeId)
             .gte('visited_at', todayStart.toISOString())
             .lte('visited_at', todayEnd.toISOString())
@@ -302,10 +302,17 @@ export const db = {
                 document.dispatchEvent(new CustomEvent('db-schema-error'));
 
                 console.warn('DB schema missing visit_type column. Falling back to legacy insert/update.');
+
+                // Append type info to note if fallback is triggered
+                const typeText = visitType === 'phone' ? '(ویزیت تلفنی)' : '';
+
                 if (existingLogs && existingLogs.length > 0) {
+                    const existingNote = existingLogs[0].note || '';
+                    const newNote = existingNote.includes(typeText) ? existingNote : `${existingNote} ${typeText}`.trim();
+
                     const { data, error: fallbackUpdateError } = await supabase
                         .from('visit_logs')
-                        .update({ visited_at: nowISO }) // Omit visit_type
+                        .update({ visited_at: nowISO, note: newNote })
                         .eq('id', existingLogs[0].id)
                         .select()
                         .single();
@@ -314,14 +321,13 @@ export const db = {
                 } else {
                     const { data, error: fallbackInsertError } = await supabase
                         .from('visit_logs')
-                        .insert([{ store_id: storeId, visited_at: nowISO }]) // Omit visit_type
+                        .insert([{ store_id: storeId, visited_at: nowISO, note: typeText }])
                         .select()
                         .single();
                     if (fallbackInsertError) throw fallbackInsertError;
                     resultData = data;
                 }
 
-                // Hack: Manually attach visit_type to resultData so UI updates correctly locally
                 if (resultData) {
                     resultData.visit_type = visitType;
                 }

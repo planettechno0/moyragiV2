@@ -54,8 +54,9 @@ const App = {
                 <div id="${id}" class="toast align-items-center text-bg-warning border-0" role="alert" aria-live="assertive" aria-atomic="true">
                     <div class="d-flex">
                         <div class="toast-body">
-                            قابلیت ویزیت تلفنی نیاز به آپدیت دیتابیس دارد.
-                            <button class="btn btn-sm btn-dark ms-2" onclick="document.dispatchEvent(new CustomEvent('open-sql-modal'))">مشاهده کد</button>
+                            <div>خطای ساختار دیتابیس (visit_type).</div>
+                            <div class="small mt-1">برای عملکرد صحیح دکمه زیر را زده و اسکریپت را اجرا کنید.</div>
+                            <button class="btn btn-sm btn-dark mt-2 w-100" onclick="document.dispatchEvent(new CustomEvent('open-sql-modal'))">تعمیر دیتابیس</button>
                         </div>
                         <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
                     </div>
@@ -63,17 +64,13 @@ const App = {
             `;
             container.insertAdjacentHTML('beforeend', toastHtml);
             const toastEl = document.getElementById(id);
-            const toast = new bootstrap.Toast(toastEl, { delay: 10000 }); // Longer delay
+            const toast = new bootstrap.Toast(toastEl, { delay: 15000 }); // Longer delay
             toast.show();
             toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
         });
 
         // Helper event to open SQL modal from Toast button (since onclick string scope is global window)
-        // We attach listener to document to handle this custom event or direct call?
-        // Inline onclick `document.dispatchEvent` works.
         document.addEventListener('open-sql-modal', () => {
-            // Open Settings Modal first, then SQL Modal? Or just SQL Modal.
-            // SQL Modal is standalone `sqlModal`.
             SettingsModal.showSqlModal();
         });
     },
@@ -317,9 +314,9 @@ const App = {
 
                  // Show visit type icon/badge
                  let typeBadge = '';
-                 if (log.visit_type === 'phone') {
+                 if (log.visit_type === 'phone' || (log.note && log.note.includes('ویزیت تلفنی'))) {
                      typeBadge = '<span class="badge bg-warning text-dark me-2">تلفنی</span>';
-                 } else if (log.visit_type === 'physical') {
+                 } else {
                      typeBadge = '<span class="badge bg-info text-dark me-2">حضوری</span>';
                  }
 
