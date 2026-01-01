@@ -1,38 +1,4 @@
-import { Toast } from '../shared/Toast.js';
-
-export const SettingsModal = {
-    initListeners() {
-        document.getElementById('settingsModal').addEventListener('show.bs.modal', () => this.loadTelegramSettings());
-        document.getElementById('saveTelegramSettingsBtn').addEventListener('click', () => this.saveTelegramSettings());
-
-        document.getElementById('showDbScriptBtn').addEventListener('click', () => this.showSqlModal());
-        document.getElementById('copySqlBtn').addEventListener('click', () => {
-             const textarea = document.getElementById('sqlContent');
-             textarea.select();
-             navigator.clipboard.writeText(textarea.value);
-             Toast.show('کپی شد', 'success');
-        });
-    },
-
-    loadTelegramSettings() {
-        const token = localStorage.getItem('bolt_telegram_token') || '';
-        const userId = localStorage.getItem('bolt_telegram_userid') || '';
-        document.getElementById('telegramBotToken').value = token;
-        document.getElementById('telegramUserId').value = userId;
-    },
-
-    saveTelegramSettings() {
-        const token = document.getElementById('telegramBotToken').value.trim();
-        const userId = document.getElementById('telegramUserId').value.trim();
-
-        localStorage.setItem('bolt_telegram_token', token);
-        localStorage.setItem('bolt_telegram_userid', userId);
-
-        Toast.show('تنظیمات تلگرام ذخیره شد.', 'success');
-    },
-
-    showSqlModal() {
-        const sql = `-- Enable RLS
+-- Enable RLS
 alter default privileges in schema public grant all on tables to postgres, service_role;
 
 -- 1. Regions
@@ -110,11 +76,6 @@ create table if not exists visit_logs (
 alter table visit_logs enable row level security;
 create policy "Public visit_logs" on visit_logs for all using (true);
 
--- Indexes
+-- Indexes (Optional but recommended)
 create index if not exists idx_stores_region on stores(region);
 create index if not exists idx_visit_logs_store_id on visit_logs(store_id);
-`;
-        document.getElementById('sqlContent').value = sql;
-        new bootstrap.Modal(document.getElementById('sqlModal')).show();
-    }
-};
