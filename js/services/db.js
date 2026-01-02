@@ -56,6 +56,21 @@ export const db = {
         return data;
     },
 
+    async getAllOrdersWithDetails() {
+        const modifier = (query) => query.select('*, store:stores(name, region, address, phone)').order('created_at', { ascending: false });
+        const data = await this.fetchAll('orders', modifier);
+        if (data) {
+             return data.map(order => ({
+                ...order,
+                storeName: order.store?.name,
+                storeRegion: order.store?.region,
+                storeAddress: order.store?.address,
+                storePhone: order.store?.phone
+            }));
+        }
+        return [];
+    },
+
     async getAllData() {
         const [regions, products, stores, orders, visits, visit_logs] = await Promise.all([
             this.fetchAll('regions'),
