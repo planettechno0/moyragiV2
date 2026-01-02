@@ -24,7 +24,17 @@ export const OrdersView = {
         });
 
         if (dateFilter) {
-            allOrders = allOrders.filter(o => o.date === dateFilter.trim());
+            // Normalize: 1402/1/1 -> 1402/01/01
+            const parts = dateFilter.split('/');
+            if (parts.length === 3) {
+                const y = parts[0];
+                const m = parts[1].padStart(2, '0');
+                const d = parts[2].padStart(2, '0');
+                const normDate = `${y}/${m}/${d}`;
+                allOrders = allOrders.filter(o => o.date === normDate || o.date === dateFilter);
+            } else {
+                allOrders = allOrders.filter(o => o.date.includes(dateFilter));
+            }
         }
 
         allOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -70,6 +80,28 @@ export const OrdersView = {
     },
 
     initListeners() {
-        document.getElementById('orderDateFilter').addEventListener('change', () => this.render());
+        const dateInput = document.getElementById('orderDateFilter');
+
+        // Init KamaDatepicker
+        if (typeof kamaDatepicker === 'function') {
+            kamaDatepicker('orderDateFilter', {
+                buttonsColor: "blue",
+                forceFarsiDigits: true,
+                markToday: true,
+                markHolidays: true,
+                highlightSelectedDay: true,
+                sync: true,
+                gotoToday: true
+            });
+        }
+
+        // Listener for manual input or date picker change
+        // Note: kamaDatepicker might not trigger 'change' automatically on selection.
+        // We listen to 'input', 'change', and 'blur'.
+        ['change', 'input', 'blur'].forEach(evt => {
+            dateInput.addEventListener(evt, () => this.render());
+        });
+
+        // Hack: poll for value change if needed, but input/change covers most.
     }
 };

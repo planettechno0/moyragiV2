@@ -14,6 +14,9 @@
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 
+    <!-- Kama Datepicker CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/kamadatepicker@1.5.3/dist/kamadatepicker.min.css">
+
     <!-- Jalaali Date Library -->
     <script src="https://cdn.jsdelivr.net/npm/jalaali-js/dist/jalaali.js"></script>
 
@@ -331,7 +334,8 @@
                 <div class="row mb-3 align-items-end">
                     <div class="col-md-4">
                         <label class="form-label small text-muted">فیلتر تاریخ (شمسی)</label>
-                        <input type="text" class="form-control" id="orderDateFilter" placeholder="1402/01/01">
+                        <!-- Added autocomplete off to prevent browser history covering calendar -->
+                        <input type="text" class="form-control" id="orderDateFilter" placeholder="1402/01/01" autocomplete="off">
                     </div>
                     <div class="col-md-8 text-end">
                         <div class="d-inline-flex align-items-end gap-2">
@@ -859,6 +863,10 @@
 
     <!-- Bootstrap JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+
+    <!-- jQuery & Kama Datepicker -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/kamadatepicker@1.5.3/dist/kamadatepicker.min.js"></script>
 
     <!-- Main Module -->
     <script type="module" src="js/main.js"></script>

@@ -472,7 +472,9 @@ const App = {
                     allOrders.push({
                         ...order,
                         storeName: store.name,
-                        storeRegion: store.region
+                        storeRegion: store.region,
+                        storeAddress: store.address || 'بدون آدرس',
+                        storePhone: store.phone || '-'
                     });
                 });
             }
@@ -492,7 +494,7 @@ const App = {
              if (o.items && o.items.length) {
                  itemsText = o.items.map(it => `${it.count} ${it.productName}`).join('، ');
              }
-             message += `${i+1}. *${o.storeName}* (${o.storeRegion})\n📅 ${o.date}\n📦 ${itemsText}\n📝 ${o.text || ''}\n\n`;
+             message += `${i+1}. *${o.storeName}* (${o.storeRegion})\n📞 ${o.storePhone}\n📍 ${o.storeAddress}\n📅 ${o.date}\n📦 ${itemsText}\n📝 ${o.text || ''}\n\n`;
         });
 
         this.sendTelegramMessage(token, userId, message, 'sendOrdersToTelegramBtn');
