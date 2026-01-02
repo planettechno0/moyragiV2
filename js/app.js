@@ -26,10 +26,14 @@ const App = {
         DashboardView.init();
         ManagementView.init(); // Initialize Management View listeners (including Statistics)
         OrdersView.initListeners();
-        VisitModal.initListeners();
+        // VisitModal.initListeners(); // Moved to fix duplication issues - initialized only when needed or via dedicated setup
         OrderModal.initListeners();
         SettingsModal.initListeners();
         AddStoreModal.initListeners();
+
+        // Prevent stacking VisitModal listeners by initializing it safely once if needed,
+        // or relying on direct event handling.
+        VisitModal.initListeners();
 
         document.getElementById('addRegionBtn').addEventListener('click', () => RegionManager.add());
         document.getElementById('addProductBtn').addEventListener('click', () => ProductManager.add());
@@ -99,7 +103,6 @@ const App = {
         });
     },
 
-    // ... (rest of the file remains same)
     setupNavigation() {
         const views = {
             'dashboard': DashboardView,
@@ -146,6 +149,9 @@ const App = {
             // Removed localStorage writes
 
             try {
+                // Visits are now fetched directly by VisitList.render(), but we keep state.data.visits populated
+                // for notifications and other utils if needed.
+                // However, VisitList should be the source of truth for the list view.
                 state.data.visits = await db.getVisits() || [];
             } catch (err) {
                 console.warn('Could not load visits', err);
@@ -156,7 +162,7 @@ const App = {
 
             RegionManager.render();
             ProductManager.render();
-            VisitList.render();
+            await VisitList.render(); // Make this await as it fetches data now
 
             this.checkVisitNotifications();
 
@@ -180,17 +186,15 @@ const App = {
         if (!document.getElementById('ordersView').classList.contains('d-none')) {
             OrdersView.render();
         }
-        // Dashboard is updated by loadChunk/StoreList logic usually, but if we have local updates:
         if (!document.getElementById('dashboardView').classList.contains('d-none')) {
-             // If we didn't just loadChunk (e.g. view-update event), we might want to re-render cards
-             // import('./components/dashboard/StoreList.js').then(m => m.StoreList.render());
-             // But StoreList.render() uses state.data.stores.
-             // If local state changed, this is correct.
              import('./components/dashboard/StoreList.js').then(m => m.StoreList.render());
         }
+        // Also refresh Visits if modal or list is visible (though VisitList is usually static on sidebar/modal)
+         VisitList.render();
     },
 
     checkVisitNotifications() {
+        // We use state.data.visits which was populated in loadInitialData
         const tomorrow = dateUtils.getTomorrowJalaali();
         const upcoming = state.data.visits.filter(v => v.visit_date === tomorrow && v.status !== 'done');
 

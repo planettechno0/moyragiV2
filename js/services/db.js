@@ -115,6 +115,12 @@ export const db = {
         return data[0]
     },
 
+    async updateProduct(id, name) {
+        const { data, error } = await supabase.from('products').update({ name }).eq('id', id).select()
+        if (error) throw error
+        return data[0]
+    },
+
     async deleteProduct(id) {
         const { error } = await supabase.from('products').delete().eq('id', id)
         if (error) throw error

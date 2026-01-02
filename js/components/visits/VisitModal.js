@@ -20,6 +20,11 @@ export const VisitModal = {
              return;
         }
 
+        const btn = document.getElementById('saveVisitBtn');
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> ثبت...';
+
         const storeId = document.getElementById('visitStoreId').value;
         const date = document.getElementById('visitDate').value.trim();
         const time = document.getElementById('visitTime').value;
@@ -27,6 +32,8 @@ export const VisitModal = {
 
         if (!/^\d{4}\/\d{2}\/\d{2}$/.test(date)) {
             Toast.show('فرمت تاریخ باید 1402/01/01 باشد', 'error');
+            btn.disabled = false;
+            btn.innerHTML = originalText;
             return;
         }
 
@@ -40,9 +47,9 @@ export const VisitModal = {
             Toast.show('قرار ویزیت ثبت شد', 'success');
             bootstrap.Modal.getInstance(document.getElementById('visitModal')).hide();
 
-            // Reload visits
-            state.data.visits = await db.getVisits() || [];
-            VisitList.render();
+            // Reload visits from DB directly to update list
+            await VisitList.render();
+
         } catch (e) {
             console.error(e);
             if ((e.message && e.message.includes('relation "visits" does not exist')) ||
@@ -51,6 +58,9 @@ export const VisitModal = {
             } else {
                  Toast.show('خطا در ثبت قرار. اتصال اینترنت را بررسی کنید.', 'error');
             }
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
         }
     },
 
@@ -71,6 +81,11 @@ export const VisitModal = {
     },
 
     async saveLogEdit() {
+        const btn = document.getElementById('saveLogEditBtn');
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = 'ذخیره...';
+
         const logId = document.getElementById('editLogId').value;
         const storeId = document.getElementById('editLogStoreId').value;
         const dateStr = document.getElementById('editLogDate').value;
@@ -79,6 +94,8 @@ export const VisitModal = {
 
         if (!/^\d{4}\/\d{2}\/\d{2}$/.test(dateStr)) {
             Toast.show('فرمت تاریخ باید 1402/01/01 باشد', 'error');
+            btn.disabled = false;
+            btn.innerHTML = originalText;
             return;
         }
 
@@ -98,7 +115,7 @@ export const VisitModal = {
 
             await db.updateVisitLog(logId, note, isoDate);
 
-            // Update local state
+            // Update local state for immediate UI feedback
             const store = state.data.stores.find(s => s.id == storeId);
             if (store && store.visit_logs) {
                 const log = store.visit_logs.find(l => l.id == logId);
@@ -116,6 +133,9 @@ export const VisitModal = {
         } catch (e) {
             console.error(e);
             Toast.show('خطا در ویرایش', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
         }
     },
 
@@ -131,8 +151,15 @@ export const VisitModal = {
          }
     },
 
+    // Safeguard against multiple listener attachments
+    listenersAttached: false,
+
     initListeners() {
+        if (this.listenersAttached) return;
+
         document.getElementById('saveVisitBtn').addEventListener('click', () => this.save());
         document.getElementById('saveLogEditBtn').addEventListener('click', () => this.saveLogEdit());
+
+        this.listenersAttached = true;
     }
 };
