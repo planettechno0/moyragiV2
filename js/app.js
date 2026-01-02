@@ -24,6 +24,7 @@ const App = {
         });
 
         DashboardView.init();
+        ManagementView.init(); // Initialize Management View listeners (including Statistics)
         OrdersView.initListeners();
         VisitModal.initListeners();
         OrderModal.initListeners();
