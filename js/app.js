@@ -465,39 +465,45 @@ const App = {
             return;
         }
 
-        let allOrders = [];
-        state.data.stores.forEach(store => {
-            if (store.orders) {
-                store.orders.forEach(order => {
-                    allOrders.push({
-                        ...order,
-                        storeName: store.name,
-                        storeRegion: store.region,
-                        storeAddress: store.address || 'بدون آدرس',
-                        storePhone: store.phone || '-'
-                    });
-                });
+        try {
+            const btn = document.getElementById('sendOrdersToTelegramBtn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> دریافت...';
+            btn.disabled = true;
+
+            // Fetch ALL orders directly from DB (latest first)
+            let allOrders = await db.getAllOrdersWithDetails();
+
+            // Note: getAllOrdersWithDetails already returns flattened structure with storeName, etc.
+            // And it is sorted by created_at DESC.
+
+            // Limit count
+            const ordersToSend = allOrders.slice(0, count);
+
+            if (ordersToSend.length === 0) {
+                Toast.show('سفارشی برای ارسال وجود ندارد.', 'warning');
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                return;
             }
-        });
 
-        allOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        const ordersToSend = allOrders.slice(0, count);
+            let message = `📋 *لیست ${count} سفارش آخر*\n\n`;
+            ordersToSend.forEach((o, i) => {
+                 let itemsText = '-';
+                 if (o.items && o.items.length) {
+                     itemsText = o.items.map(it => `${it.count} ${it.productName}`).join('، ');
+                 }
+                 message += `${i+1}. *${o.storeName || 'نامشخص'}* (${o.storeRegion || '-'}) \n📞 ${o.storePhone || '-'}\n📍 ${o.storeAddress || '-'}\n📅 ${o.date}\n📦 ${itemsText}\n📝 ${o.text || ''}\n\n`;
+            });
 
-        if (ordersToSend.length === 0) {
-            Toast.show('سفارشی برای ارسال وجود ندارد.', 'warning');
-            return;
+            this.sendTelegramMessage(token, userId, message, 'sendOrdersToTelegramBtn');
+
+        } catch (e) {
+            console.error(e);
+            Toast.show('خطا در دریافت سفارشات برای ارسال', 'error');
+            const btn = document.getElementById('sendOrdersToTelegramBtn');
+            if(btn) { btn.innerHTML = 'ارسال به ربات'; btn.disabled = false; }
         }
-
-        let message = `📋 *لیست ${count} سفارش آخر*\n\n`;
-        ordersToSend.forEach((o, i) => {
-             let itemsText = '-';
-             if (o.items && o.items.length) {
-                 itemsText = o.items.map(it => `${it.count} ${it.productName}`).join('، ');
-             }
-             message += `${i+1}. *${o.storeName}* (${o.storeRegion})\n📞 ${o.storePhone}\n📍 ${o.storeAddress}\n📅 ${o.date}\n📦 ${itemsText}\n📝 ${o.text || ''}\n\n`;
-        });
-
-        this.sendTelegramMessage(token, userId, message, 'sendOrdersToTelegramBtn');
     },
 
     async handleSendVisitsToTelegram() {
@@ -528,9 +534,11 @@ const App = {
 
     async sendTelegramMessage(token, userId, text, btnId) {
         const btn = document.getElementById(btnId);
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> ارسال...';
-        btn.disabled = true;
+        const originalText = btn ? btn.innerHTML : 'ارسال'; // Safety check
+        if (btn) {
+             btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> ارسال...';
+             btn.disabled = true;
+        }
 
         try {
             const url = `https://api.telegram.org/bot${token}/sendMessage`;
@@ -555,8 +563,10 @@ const App = {
             console.error(error);
             Toast.show('خطا در ارتباط با سرور تلگرام.', 'error');
         } finally {
-            btn.innerHTML = originalText;
-            btn.disabled = false;
+            if (btn) {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
         }
     }
 };
