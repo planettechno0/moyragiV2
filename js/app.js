@@ -259,6 +259,7 @@ const App = {
 
             if (action === 'delete-region') RegionManager.delete(btn.dataset.id);
             else if (action === 'delete-product') ProductManager.delete(btn.dataset.id);
+            else if (action === 'edit-product') ProductManager.promptEdit(btn.dataset.id, btn.dataset.name);
             else if (action === 'edit-store') AddStoreModal.open(btn.dataset.storeId);
             else if (action === 'new-order') OrderModal.open(btn.dataset.storeId);
             else if (action === 'edit-order') OrderModal.open(btn.dataset.storeId, btn.dataset.orderId);

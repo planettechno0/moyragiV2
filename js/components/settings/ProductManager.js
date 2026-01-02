@@ -1,96 +1,65 @@
 import { db } from '../../services/db.js';
-import { UIManager } from '../../ui.js';
+import { state } from '../../core/state.js';
+import { Toast } from '../shared/Toast.js';
+import { Utils } from '../shared/Utils.js';
 
 export const ProductManager = {
-    products: [],
-
-    async init() {
-        await this.loadProducts();
-        this.render();
-    },
-
-    async loadProducts() {
-        try {
-            this.products = await db.getProducts();
-        } catch (error) {
-            console.error('Failed to load products:', error);
-            UIManager.showToast('خطا در بارگذاری محصولات', 'error');
-        }
-    },
-
     render() {
-        const container = document.getElementById('product-list');
+        const container = document.getElementById('productList');
         if (!container) return;
 
-        container.innerHTML = this.products.map(product => `
-            <div class="list-group-item d-flex justify-content-between align-items-center">
-                <span>${product.name}</span>
+        container.innerHTML = '';
+        state.data.products.forEach(product => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item d-flex justify-content-between align-items-center';
+            li.innerHTML = `
+                <span>${Utils.escapeHtml(product.name)}</span>
                 <div class="btn-group btn-group-sm">
-                    <button class="btn btn-outline-primary edit-product"
-                            data-id="${product.id}"
-                            data-name="${product.name}">
+                    <button class="btn btn-outline-primary" data-action="edit-product" data-id="${product.id}" data-name="${Utils.escapeHtml(product.name)}">
                         <i class="bi bi-pencil"></i>
                     </button>
-                    <button class="btn btn-outline-danger delete-product"
-                            data-id="${product.id}">
+                    <button class="btn btn-outline-danger" data-action="delete-product" data-id="${product.id}">
                         <i class="bi bi-trash"></i>
                     </button>
                 </div>
-            </div>
-        `).join('');
-
-        // Re-attach event listeners specifically for the product list
-        this.attachListeners();
-    },
-
-    attachListeners() {
-        const container = document.getElementById('product-list');
-        if (!container) return;
-
-        // Delete buttons
-        container.querySelectorAll('.delete-product').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                const id = e.target.closest('button').dataset.id;
-                if (confirm('آیا از حذف این محصول مطمئن هستید؟')) {
-                    await this.deleteProduct(id);
-                }
-            });
-        });
-
-        // Edit buttons
-        container.querySelectorAll('.edit-product').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const button = e.target.closest('button');
-                const id = button.dataset.id;
-                const name = button.dataset.name;
-                this.promptEdit(id, name);
-            });
+            `;
+            container.appendChild(li);
         });
     },
 
-    async addProduct(name) {
-        if (!name.trim()) return;
+    async add() {
+        const input = document.getElementById('newProductInput');
+        const name = input.value.trim();
+        if (!name) return;
 
         try {
-            await db.addProduct(name);
-            await this.loadProducts();
-            this.render();
-            UIManager.showToast('محصول با موفقیت اضافه شد');
+            const newProduct = await db.addProduct(name);
+            if (newProduct) {
+                // Ensure state is updated correctly
+                // db.addProduct returns the single inserted object or null/error
+                state.data.products.push(newProduct);
+                this.render();
+                input.value = '';
+                Toast.show('محصول با موفقیت اضافه شد', 'success');
+                document.dispatchEvent(new Event('data-change'));
+            }
         } catch (error) {
             console.error('Error adding product:', error);
-            UIManager.showToast('خطا در افزودن محصول', 'error');
+            Toast.show('خطا در افزودن محصول', 'error');
         }
     },
 
-    async deleteProduct(id) {
+    async delete(id) {
+        if (!confirm('آیا از حذف این محصول مطمئن هستید؟')) return;
         try {
             await db.deleteProduct(id);
-            await this.loadProducts();
+            state.data.products = state.data.products.filter(p => p.id != id);
             this.render();
-            UIManager.showToast('محصول حذف شد');
+            Toast.show('محصول حذف شد', 'success');
+            document.dispatchEvent(new Event('data-change'));
         } catch (error) {
             console.error('Error deleting product:', error);
-            UIManager.showToast('خطا در حذف محصول', 'error');
+            Toast.show('خطا در حذف محصول', 'error');
         }
     },
 
@@ -104,12 +73,17 @@ export const ProductManager = {
     async editProduct(id, newName) {
         try {
             await db.updateProduct(id, newName);
-            await this.loadProducts();
+            // Update local state
+            const product = state.data.products.find(p => p.id == id);
+            if (product) {
+                product.name = newName;
+            }
             this.render();
-            UIManager.showToast('محصول ویرایش شد');
+            Toast.show('محصول ویرایش شد', 'success');
+            document.dispatchEvent(new Event('data-change'));
         } catch (error) {
             console.error('Error editing product:', error);
-            UIManager.showToast('خطا در ویرایش محصول', 'error');
+            Toast.show('خطا در ویرایش محصول', 'error');
         }
     }
 };
