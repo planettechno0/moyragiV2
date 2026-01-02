@@ -11,16 +11,14 @@ export const Statistics = {
         tbody.innerHTML = '<tr><td colspan="3" class="text-center"><span class="spinner-border spinner-border-sm"></span> در حال محاسبه...</td></tr>';
 
         try {
-            let stores = state.data.stores;
-            if (state.pagination.hasMore) {
-                // If not all loaded, try fetching all for stats (heavy operation warning)
-                stores = await db.getAllStores();
-            }
+            // Fetch ALL stores (lightweight: only region) to calculate stats accurately
+            // consistently, regardless of pagination state.
+            const allStores = await db.fetchAll('stores', (query) => query.select('region'));
 
-            const total = stores.length;
+            const total = allStores.length;
             const regionCounts = {};
 
-            stores.forEach(s => {
+            allStores.forEach(s => {
                 const r = s.region || 'نامشخص';
                 regionCounts[r] = (regionCounts[r] || 0) + 1;
             });
@@ -30,6 +28,12 @@ export const Statistics = {
 
             // Render Table
             tbody.innerHTML = '';
+
+            if (total === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">اطلاعاتی یافت نشد</td></tr>';
+                return;
+            }
+
             const sortedRegions = Object.entries(regionCounts).sort((a, b) => b[1] - a[1]);
 
             sortedRegions.forEach(([region, count]) => {
@@ -58,9 +62,12 @@ export const Statistics = {
     },
 
     initListeners() {
-         document.getElementById('tab-stats-btn').addEventListener('shown.bs.tab', () => {
-            this.render();
-        });
+         const btn = document.getElementById('tab-stats-btn');
+         if (btn) {
+             btn.addEventListener('shown.bs.tab', () => {
+                this.render();
+            });
+         }
         document.getElementById('refreshStatsBtn').addEventListener('click', () => {
             this.render();
         });
