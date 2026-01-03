@@ -9,6 +9,10 @@ export const AddStoreModal = {
         form.reset();
         document.querySelectorAll('.store-day-check').forEach(cb => cb.checked = false);
 
+        // Clean up any existing delete button
+        const oldDeleteBtn = document.getElementById('deleteStoreInModalBtn');
+        if (oldDeleteBtn) oldDeleteBtn.remove();
+
         if (storeId) {
             const store = state.data.stores.find(s => s.id == storeId);
             if (store) {
@@ -29,6 +33,27 @@ export const AddStoreModal = {
                         if (cb) cb.checked = true;
                     });
                 }
+
+                // Add Delete Button
+                const footer = document.querySelector('#addStoreModal .modal-footer');
+                const deleteBtn = document.createElement('button');
+                deleteBtn.id = 'deleteStoreInModalBtn';
+                deleteBtn.className = 'btn btn-outline-danger me-auto';
+                deleteBtn.innerHTML = '<i class="bi bi-trash"></i> حذف فروشگاه';
+                deleteBtn.onclick = async () => {
+                    if (confirm('آیا از حذف این فروشگاه اطمینان دارید؟')) {
+                        try {
+                            await db.deleteStore(store.id);
+                            Toast.show('فروشگاه حذف شد.', 'success');
+                            bootstrap.Modal.getInstance(document.getElementById('addStoreModal')).hide();
+                            document.dispatchEvent(new Event('data-change'));
+                        } catch (err) {
+                            console.error(err);
+                            Toast.show('خطا در حذف فروشگاه', 'error');
+                        }
+                    }
+                };
+                footer.insertBefore(deleteBtn, footer.firstChild);
             }
         } else {
             document.getElementById('storeId').value = '';
@@ -39,6 +64,7 @@ export const AddStoreModal = {
     },
 
     async save() {
+        const btn = document.getElementById('saveStoreBtn');
         const id = document.getElementById('storeId').value;
         const name = document.getElementById('storeName').value.trim();
         const region = document.getElementById('storeRegion').value;
@@ -63,6 +89,11 @@ export const AddStoreModal = {
             visitDays
         };
 
+        // Prevent Double Submit
+        btn.disabled = true;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> ذخیره...';
+
         try {
             if (id) {
                 await db.updateStore(id, storeData);
@@ -73,15 +104,13 @@ export const AddStoreModal = {
             }
 
             bootstrap.Modal.getInstance(document.getElementById('addStoreModal')).hide();
-
-            // Refresh logic: We should probably reload just the one store or all.
-            // But since we are paginated, reloading all clears pagination.
-            // Let's force a reload of the current chunk or just append if new?
-            // Simpler to rely on generic refresh signal or just reload pagination.
             document.dispatchEvent(new Event('data-change'));
         } catch (err) {
             console.error(err);
             Toast.show('خطا در ذخیره سازی', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
         }
     },
 
