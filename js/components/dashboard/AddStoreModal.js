@@ -65,6 +65,8 @@ export const AddStoreModal = {
 
     async save() {
         const btn = document.getElementById('saveStoreBtn');
+        if (btn.disabled) return;
+
         const id = document.getElementById('storeId').value;
         const name = document.getElementById('storeName').value.trim();
         const region = document.getElementById('storeRegion').value;
@@ -115,7 +117,8 @@ export const AddStoreModal = {
     },
 
     initListeners() {
-        document.getElementById('saveStoreBtn').addEventListener('click', () => this.save());
-        document.getElementById('addStoreBtn').addEventListener('click', () => this.open());
+        // Use onclick to prevent duplicate event listeners if initListeners is called multiple times
+        document.getElementById('saveStoreBtn').onclick = () => this.save();
+        document.getElementById('addStoreBtn').onclick = () => this.open();
     }
 };
