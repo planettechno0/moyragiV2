@@ -75,7 +75,7 @@ export const exportToExcel = async (stores) => {
 
 // --- Full Backup & Restore ---
 
-export const backupToExcel = async (data) => {
+const generateBackupWorkbook = async (data) => {
     const XLSX = await loadXLSX();
     const workbook = XLSX.utils.book_new();
 
@@ -93,13 +93,8 @@ export const backupToExcel = async (data) => {
 
     // 3. Stores
     if (data.stores && data.stores.length) {
-        // We need to strip 'orders' from stores for the sheet, or keep it flat.
-        // For backup/restore DB style, strict separation is better.
         const storesClean = data.stores.map(s => {
-            const { orders, ...rest } = s; // Exclude orders array from store sheet
-            // Convert array visit_days to string for CSV/Excel safety if needed, but XLSX handles arrays okay usually?
-            // Actually, for restore, simpler to JSON stringify arrays or keep as is if library supports it.
-            // Let's JSON stringify visit_days to be safe.
+            const { orders, ...rest } = s;
             return {
                 ...rest,
                 visit_days: JSON.stringify(rest.visit_days)
@@ -110,13 +105,20 @@ export const backupToExcel = async (data) => {
     }
 
     // 4. Orders
-    // Extract all orders
     let allOrders = [];
-    if (data.stores) {
+    // Check if orders are flat in data (from db.getAllData) or nested in stores
+    // db.getAllData returns nested stores AND potentially flat orders if we added it.
+    // Ideally we should prefer flat orders list if available to avoid duplication logic.
+    // If data.orders exists, use it. Else extract from stores.
+    if (data.orders && data.orders.length > 0) {
+         allOrders = data.orders.map(o => ({
+             ...o,
+             items: typeof o.items === 'string' ? o.items : JSON.stringify(o.items)
+         }));
+    } else if (data.stores) {
         data.stores.forEach(store => {
             if (store.orders) {
                 store.orders.forEach(order => {
-                    // Flatten items to JSON string
                     allOrders.push({
                         ...order,
                         items: JSON.stringify(order.items)
@@ -125,6 +127,7 @@ export const backupToExcel = async (data) => {
             }
         });
     }
+
     if (allOrders.length) {
         const wsOrders = XLSX.utils.json_to_sheet(allOrders);
         XLSX.utils.book_append_sheet(workbook, wsOrders, "Orders");
@@ -133,14 +136,33 @@ export const backupToExcel = async (data) => {
     // 5. Visits
     if (data.visits && data.visits.length) {
         const cleanVisits = data.visits.map(v => {
-            const { store, ...rest } = v; // Remove nested store object
+            const { store, ...rest } = v;
             return rest;
         });
         const wsVisits = XLSX.utils.json_to_sheet(cleanVisits);
         XLSX.utils.book_append_sheet(workbook, wsVisits, "Visits");
     }
 
+    // 6. Visit Logs
+    if (data.visit_logs && data.visit_logs.length) {
+        const wsLogs = XLSX.utils.json_to_sheet(data.visit_logs);
+        XLSX.utils.book_append_sheet(workbook, wsLogs, "VisitLogs");
+    }
+
+    return workbook;
+};
+
+export const backupToExcel = async (data) => {
+    const XLSX = await loadXLSX();
+    const workbook = await generateBackupWorkbook(data);
     XLSX.writeFile(workbook, `Moyragi_Backup_${new Date().toISOString().slice(0,10)}.xlsx`);
+};
+
+export const getBackupBlob = async (data) => {
+    const XLSX = await loadXLSX();
+    const workbook = await generateBackupWorkbook(data);
+    const arrayBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    return new Blob([arrayBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 };
 
 export const parseExcelBackup = async (file) => {

@@ -1,6 +1,6 @@
 import { db } from './db.js'
 import { auth } from './auth.js'
-import { exportToExcel, backupToExcel, parseExcelBackup } from './excel.js'
+import { exportToExcel, backupToExcel, parseExcelBackup, getBackupBlob } from './excel.js'
 import { backupToJSON, parseJSONBackup } from './backup.js'
 import { dateUtils } from './date_utils.js'
 
@@ -85,12 +85,22 @@ export const ui = {
                 }
             } catch (e) { console.warn('Cache load failed', e); }
 
-            // Load Aux Data
-            // We handle visits separately so if the table doesn't exist yet, the app still works.
-            const [regions, products] = await Promise.all([
-                db.getRegions(),
-                db.getProducts()
-            ])
+            // Load Aux Data with retry
+            let regions = [], products = [];
+            try {
+                [regions, products] = await Promise.all([
+                    db.getRegions(),
+                    db.getProducts()
+                ]);
+            } catch (e) {
+                console.warn("Initial aux fetch failed, retrying once...", e);
+                // Simple retry logic
+                [regions, products] = await Promise.all([
+                    db.getRegions(),
+                    db.getProducts()
+                ]);
+            }
+
             this.data.regions = regions || []
             this.data.products = products || []
 
@@ -119,7 +129,13 @@ export const ui = {
             await this.loadStoresChunk()
         } catch (error) {
             console.error('Error loading data:', error)
-            this.showToast('خطا در بارگذاری اطلاعات. لطفاً دوباره تلاش کنید.', 'error')
+            const toastBody = `
+                <div class="d-flex flex-column align-items-start">
+                    <span>خطا در بارگذاری اطلاعات.</span>
+                    <button class="btn btn-sm btn-light mt-2" onclick="location.reload()">تلاش مجدد</button>
+                </div>
+            `;
+            this.showToast(toastBody, 'error')
         }
     },
 
@@ -157,6 +173,53 @@ export const ui = {
         }
     },
 
+    async handleSearch() {
+        const query = document.getElementById('searchInput').value.trim();
+        const statusEl = document.getElementById('searchStatus');
+
+        if (!query) {
+            this.handleClearSearch();
+            return;
+        }
+
+        // Show searching state
+        const container = document.getElementById('storesContainer');
+        container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><div class="mt-2">در حال جستجو...</div></div>';
+        statusEl.textContent = 'در حال جستجو در دیتابیس...';
+        statusEl.classList.remove('d-none');
+
+        // Hide Load More during search
+        document.getElementById('loadMoreContainer').classList.add('d-none');
+
+        try {
+            const results = await db.searchStores(query);
+            this.data.stores = results; // Replace current list with search results
+
+            // Disable pagination for search mode
+            this.pagination.hasMore = false;
+
+            this.renderStores();
+
+            if (results.length === 0) {
+                statusEl.textContent = 'موردی یافت نشد.';
+            } else {
+                statusEl.textContent = `${results.length} مورد یافت شد.`;
+            }
+        } catch (error) {
+            console.error(error);
+            this.showToast('خطا در جستجو', 'error');
+            statusEl.textContent = 'خطا در جستجو.';
+            container.innerHTML = ''; // Clear spinner
+        }
+    },
+
+    async handleClearSearch() {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('searchStatus').classList.add('d-none');
+        this.resetPagination();
+        await this.loadStoresChunk();
+    },
+
     // Kept for backward compat with other methods calling refreshData(), now alias to loadInitialData
     async refreshData() {
         return this.loadInitialData();
@@ -173,12 +236,22 @@ export const ui = {
         // Given complexity, let's keep client-side filter behavior but realize it only filters loaded data.
         // OR: Reset pagination and re-render.
 
-        const filterHandler = () => this.renderStores(); // Just re-render what we have
+        const filterHandler = () => {
+             // If we are in "Search Mode" (hasMore = false and search not empty?), client-side filter still applies on result set
+             this.renderStores();
+        }
 
-        document.getElementById('searchInput').addEventListener('input', filterHandler)
+        // document.getElementById('searchInput').addEventListener('input', filterHandler) // Removed live filtering in favor of DB search
+        document.getElementById('searchInput').addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') this.handleSearch();
+            if (e.target.value === '') this.handleClearSearch(); // Optional: auto clear
+        })
+        document.getElementById('searchBtn').addEventListener('click', () => this.handleSearch())
+
         document.getElementById('filterDay').addEventListener('change', filterHandler)
         document.getElementById('filterRegion').addEventListener('change', filterHandler)
         document.getElementById('filterProb').addEventListener('change', filterHandler)
+        document.getElementById('filterVisitStatus').addEventListener('change', filterHandler)
 
         // --- Toggle Visits (Separate Event for reliability) ---
         // Using 'change' event on the container to catch checkbox toggles correctly
@@ -193,6 +266,9 @@ export const ui = {
         document.getElementById('saveStoreBtn').addEventListener('click', () => this.handleSaveStore())
 
         // --- Settings ---
+        document.getElementById('settingsModal').addEventListener('show.bs.modal', () => this.loadTelegramSettings())
+        document.getElementById('saveTelegramSettingsBtn').addEventListener('click', () => this.saveTelegramSettings())
+
         document.getElementById('addRegionBtn').addEventListener('click', () => this.handleAddRegion())
         document.getElementById('addProductBtn').addEventListener('click', () => this.handleAddProduct())
 
@@ -204,8 +280,13 @@ export const ui = {
         document.getElementById('importJsonInput').addEventListener('change', (e) => this.handleImport(e, 'json'))
 
         // Backups - Excel
-        document.getElementById('backupExcelBtn').addEventListener('click', () => backupToExcel(this.data))
+        document.getElementById('backupExcelBtn').addEventListener('click', async () => {
+             // Use DB for full backup instead of ui state
+             const fullData = await db.getAllData();
+             backupToExcel(fullData);
+        })
         document.getElementById('importExcelInput').addEventListener('change', (e) => this.handleImport(e, 'excel'))
+        document.getElementById('sendBackupToTelegramBtn').addEventListener('click', () => this.handleSendBackupToTelegram())
 
         // --- SQL Script ---
         document.getElementById('showDbScriptBtn').addEventListener('click', () => this.showSqlModal())
@@ -238,6 +319,8 @@ export const ui = {
         })
 
         document.getElementById('orderDateFilter').addEventListener('change', () => this.renderAllOrders())
+        document.getElementById('sendOrdersToTelegramBtn').addEventListener('click', () => this.handleSendOrdersToTelegram())
+        document.getElementById('sendVisitsToTelegramBtn').addEventListener('click', () => this.handleSendVisitsToTelegram())
 
         // --- Visits ---
         document.getElementById('saveVisitBtn').addEventListener('click', () => this.handleSaveVisit())
@@ -413,8 +496,10 @@ export const ui = {
         const dayFilter = document.getElementById('filterDay').value
         const regionFilter = document.getElementById('filterRegion').value
         const probFilter = document.getElementById('filterProb').value
+        const visitStatusFilter = document.getElementById('filterVisitStatus').value
         const searchQuery = document.getElementById('searchInput').value.trim().toLowerCase()
         const currentDayIndex = new Date().getDay()
+        const now = new Date();
 
         const filteredStores = this.data.stores.filter(store => {
             if (searchQuery) {
@@ -424,6 +509,20 @@ export const ui = {
             }
             if (regionFilter !== 'all' && store.region !== regionFilter) return false
             if (probFilter !== 'all' && store.purchase_prob !== probFilter) return false
+
+            // Visit Status Filter
+            if (visitStatusFilter !== 'all') {
+                let isVisited7Days = false;
+                if (store.last_visit) {
+                    const lastVisitDate = new Date(store.last_visit);
+                    const diffTime = Math.abs(now - lastVisitDate);
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    if (diffDays <= 7) isVisited7Days = true;
+                }
+
+                if (visitStatusFilter === 'visited' && !isVisited7Days) return false;
+                if (visitStatusFilter === 'not_visited' && isVisited7Days) return false;
+            }
 
             if (dayFilter === 'all') return true
             if (dayFilter === 'today') {
@@ -451,7 +550,7 @@ export const ui = {
 
         // Optimization: Create fragment and reuse date object
         const fragment = document.createDocumentFragment();
-        const now = new Date();
+        // now is already defined above
 
         filteredStores.forEach(store => {
             // Determine Visited State (7-day window)
@@ -1206,6 +1305,219 @@ create policy "Users can delete their own visits"
             this.renderRegions()
             this.showToast('کالا افزوده شد.', 'success')
         } catch(e) { console.error(e); this.showToast('خطا در افزودن کالا', 'error') }
+    },
+
+    loadTelegramSettings() {
+        const token = localStorage.getItem('bolt_telegram_token') || '';
+        const userId = localStorage.getItem('bolt_telegram_userid') || '';
+        document.getElementById('telegramBotToken').value = token;
+        document.getElementById('telegramUserId').value = userId;
+    },
+
+    saveTelegramSettings() {
+        const token = document.getElementById('telegramBotToken').value.trim();
+        const userId = document.getElementById('telegramUserId').value.trim();
+
+        localStorage.setItem('bolt_telegram_token', token);
+        localStorage.setItem('bolt_telegram_userid', userId);
+
+        this.showToast('تنظیمات تلگرام ذخیره شد.', 'success');
+    },
+
+    async handleSendOrdersToTelegram() {
+        const token = localStorage.getItem('bolt_telegram_token');
+        const userId = localStorage.getItem('bolt_telegram_userid');
+        const count = parseInt(document.getElementById('telegramOrderCount').value) || 20;
+
+        if (!token || !userId) {
+            this.showToast('لطفاً ابتدا توکن ربات و شناسه کاربری را در تنظیمات وارد کنید.', 'error');
+            return;
+        }
+
+        // Get orders
+        let allOrders = [];
+        this.data.stores.forEach(store => {
+            if (store.orders) {
+                store.orders.forEach(order => {
+                    allOrders.push({
+                        ...order,
+                        storeName: store.name,
+                        storeRegion: store.region
+                    });
+                });
+            }
+        });
+
+        // Sort by newest
+        allOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+        const ordersToSend = allOrders.slice(0, count);
+
+        if (ordersToSend.length === 0) {
+            this.showToast('سفارشی برای ارسال وجود ندارد.', 'warning');
+            return;
+        }
+
+        let message = `📋 *لیست ${count} سفارش آخر*\n\n`;
+        ordersToSend.forEach((o, i) => {
+             let itemsText = '-';
+             if (o.items && o.items.length) {
+                 itemsText = o.items.map(it => `${it.count} ${it.productName}`).join('، ');
+             }
+             message += `${i+1}. *${o.storeName}* (${o.storeRegion})\n📅 ${o.date}\n📦 ${itemsText}\n📝 ${o.text || ''}\n\n`;
+        });
+
+        try {
+            const btn = document.getElementById('sendOrdersToTelegramBtn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> ارسال...';
+            btn.disabled = true;
+
+            const url = `https://api.telegram.org/bot${token}/sendMessage`;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: userId,
+                    text: message,
+                    parse_mode: 'Markdown'
+                })
+            });
+
+            const resData = await response.json();
+
+            if (resData.ok) {
+                this.showToast('لیست سفارشات به تلگرام ارسال شد.', 'success');
+            } else {
+                console.error('Telegram Error:', resData);
+                this.showToast('خطا در ارسال به تلگرام. توکن یا شناسه را بررسی کنید.', 'error');
+            }
+
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        } catch (error) {
+            console.error(error);
+            this.showToast('خطا در ارتباط با سرور تلگرام.', 'error');
+            const btn = document.getElementById('sendOrdersToTelegramBtn');
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    },
+
+    async handleSendVisitsToTelegram() {
+        const token = localStorage.getItem('bolt_telegram_token');
+        const userId = localStorage.getItem('bolt_telegram_userid');
+        const count = parseInt(document.getElementById('telegramVisitCount').value) || 20;
+
+        if (!token || !userId) {
+            this.showToast('لطفاً ابتدا توکن ربات و شناسه کاربری را در تنظیمات وارد کنید.', 'error');
+            return;
+        }
+
+        const visitsToSend = this.data.visits.slice(0, count);
+
+        if (visitsToSend.length === 0) {
+            this.showToast('قراری برای ارسال وجود ندارد.', 'warning');
+            return;
+        }
+
+        let message = `📅 *لیست ${count} قرار ویزیت*\n\n`;
+        visitsToSend.forEach((v, i) => {
+             const status = v.status === 'done' ? '✅ انجام شده' : '⏳ در انتظار';
+             message += `${i+1}. *${v.store?.name || 'نامشخص'}* (${v.store?.region || '-'}) \n📅 ${v.visit_date} ⏰ ${v.visit_time || '-'}\n📝 ${v.note || ''}\n${status}\n\n`;
+        });
+
+        try {
+            const btn = document.getElementById('sendVisitsToTelegramBtn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> ارسال...';
+            btn.disabled = true;
+
+            const url = `https://api.telegram.org/bot${token}/sendMessage`;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: userId,
+                    text: message,
+                    parse_mode: 'Markdown'
+                })
+            });
+
+            const resData = await response.json();
+
+            if (resData.ok) {
+                this.showToast('لیست قرارها به تلگرام ارسال شد.', 'success');
+            } else {
+                console.error('Telegram Error:', resData);
+                this.showToast('خطا در ارسال به تلگرام.', 'error');
+            }
+
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        } catch (error) {
+            console.error(error);
+            this.showToast('خطا در ارتباط با سرور تلگرام.', 'error');
+            const btn = document.getElementById('sendVisitsToTelegramBtn');
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    },
+
+    async handleSendBackupToTelegram() {
+        const token = localStorage.getItem('bolt_telegram_token');
+        const userId = localStorage.getItem('bolt_telegram_userid');
+
+        if (!token || !userId) {
+            this.showToast('لطفاً ابتدا توکن ربات و شناسه کاربری را در تنظیمات وارد کنید.', 'error');
+            return;
+        }
+
+        try {
+            const btn = document.getElementById('sendBackupToTelegramBtn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> در حال تهیه و ارسال...';
+            btn.disabled = true;
+
+            // 1. Get Full Data
+            const fullData = await db.getAllData();
+
+            // 2. Generate Excel Blob
+            const blob = await getBackupBlob(fullData);
+
+            // 3. Create Form Data
+            const formData = new FormData();
+            formData.append('chat_id', userId);
+            formData.append('document', blob, `Backup_${new Date().toISOString().slice(0,10)}.xlsx`);
+            formData.append('caption', '📦 نسخه پشتیبان جدید (اکسل)');
+
+            // 4. Send
+            const response = await fetch(`https://api.telegram.org/bot${token}/sendDocument`, {
+                method: 'POST',
+                body: formData
+            });
+
+            const resData = await response.json();
+
+            if (resData.ok) {
+                this.showToast('فایل پشتیبان با موفقیت به تلگرام ارسال شد.', 'success');
+            } else {
+                console.error('Telegram Error:', resData);
+                this.showToast('خطا در ارسال فایل به تلگرام.', 'error');
+            }
+
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+
+        } catch (error) {
+            console.error(error);
+            this.showToast('خطا در تهیه یا ارسال پشتیبان.', 'error');
+            const btn = document.getElementById('sendBackupToTelegramBtn');
+            if (btn) {
+                btn.innerHTML = '<i class="bi bi-telegram"></i> ارسال بک‌آپ اکسل به تلگرام';
+                btn.disabled = false;
+            }
+        }
     },
 
     async handleResetDaily() {

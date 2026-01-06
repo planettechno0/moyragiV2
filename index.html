@@ -112,40 +112,22 @@
 
             <!-- View: Dashboard -->
             <div id="dashboardView">
-                <!-- Filters & Search -->
-                <div class="row g-3 mb-4">
-                    <div class="col-md-3">
+                <!-- Search & Filter Button -->
+                <div class="row g-3 mb-4 align-items-end">
+                    <div class="col-md-10">
                         <label class="form-label">جستجو</label>
-                        <input type="text" class="form-control" id="searchInput" placeholder="نام فروشگاه یا آدرس...">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="searchInput" placeholder="نام فروشگاه یا آدرس...">
+                            <button class="btn btn-primary" type="button" id="searchBtn">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </div>
+                        <div id="searchStatus" class="form-text text-muted d-none"></div>
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">فیلتر زمان</label>
-                        <select class="form-select" id="filterDay">
-                            <option value="today" selected>برنامه امروز (هوشمند)</option>
-                            <option value="all">همه روزها</option>
-                            <option value="6">شنبه</option>
-                            <option value="0">یکشنبه</option>
-                            <option value="1">دوشنبه</option>
-                            <option value="2">سه‌شنبه</option>
-                            <option value="3">چهارشنبه</option>
-                            <option value="4">پنج‌شنبه</option>
-                            <option value="5">جمعه</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">فیلتر منطقه</label>
-                        <select class="form-select" id="filterRegion">
-                            <option value="all">همه مناطق</option>
-                            <!-- Options populated by JS -->
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">احتمال خرید</label>
-                        <select class="form-select" id="filterProb">
-                            <option value="all">همه</option>
-                            <option value="high">زیاد</option>
-                            <option value="low">کم</option>
-                        </select>
+                    <div class="col-md-2">
+                        <button class="btn btn-outline-primary w-100" data-bs-toggle="modal" data-bs-target="#filterModal">
+                            <i class="bi bi-funnel"></i> فیلترها
+                        </button>
                     </div>
                 </div>
 
@@ -187,7 +169,7 @@
                 <ul class="nav nav-tabs mb-3" id="manageTabs" role="tablist">
                     <li class="nav-item" role="presentation">
                         <button class="nav-link active" id="tab-visits-btn" data-bs-toggle="tab" data-bs-target="#tab-visits" type="button">
-                            <i class="bi bi-calendar-event me-1"></i> قرارهای ویزیت
+                            <i class="bi bi-calendar-event me-1"></i> قرارهای قبلی
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
@@ -244,6 +226,17 @@
 
                     <!-- Tab: Visits -->
                     <div class="tab-pane fade show active" id="tab-visits">
+                        <div class="d-flex justify-content-end mb-2">
+                            <div class="d-inline-flex align-items-end gap-2">
+                                <div style="width: 80px;">
+                                    <label class="form-label small text-muted mb-1">تعداد</label>
+                                    <input type="number" class="form-control form-control-sm text-center" id="telegramVisitCount" value="20" min="1">
+                                </div>
+                                <button class="btn btn-info text-white btn-sm" id="sendVisitsToTelegramBtn">
+                                    <i class="bi bi-telegram me-1"></i> ارسال به ربات
+                                </button>
+                            </div>
+                        </div>
                         <div class="table-responsive bg-white rounded shadow-sm p-3">
                             <table class="table table-hover align-middle">
                                 <thead class="table-light">
@@ -335,10 +328,21 @@
                     </button>
                 </div>
 
-                <div class="row mb-3">
+                <div class="row mb-3 align-items-end">
                     <div class="col-md-4">
                         <label class="form-label small text-muted">فیلتر تاریخ (شمسی)</label>
                         <input type="text" class="form-control" id="orderDateFilter" placeholder="1402/01/01">
+                    </div>
+                    <div class="col-md-8 text-end">
+                        <div class="d-inline-flex align-items-end gap-2">
+                            <div style="width: 80px;">
+                                <label class="form-label small text-muted mb-1">تعداد</label>
+                                <input type="number" class="form-control form-control-sm text-center" id="telegramOrderCount" value="20" min="1">
+                            </div>
+                            <button class="btn btn-info text-white btn-sm" id="sendOrdersToTelegramBtn">
+                                <i class="bi bi-telegram me-1"></i> ارسال به ربات
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -371,6 +375,60 @@
             </button>
         </div>
 
+        <!-- Modal: Filters -->
+        <div class="modal fade" id="filterModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">تنظیم فیلترها</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">فیلتر زمان</label>
+                            <select class="form-select" id="filterDay">
+                                <option value="all" selected>همه روزها</option>
+                                <option value="today">برنامه امروز (هوشمند)</option>
+                                <option value="6">شنبه</option>
+                                <option value="0">یکشنبه</option>
+                                <option value="1">دوشنبه</option>
+                                <option value="2">سه‌شنبه</option>
+                                <option value="3">چهارشنبه</option>
+                                <option value="4">پنج‌شنبه</option>
+                                <option value="5">جمعه</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">فیلتر منطقه</label>
+                            <select class="form-select" id="filterRegion">
+                                <option value="all">همه مناطق</option>
+                                <!-- Options populated by JS -->
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">وضعیت ویزیت (7 روز)</label>
+                            <select class="form-select" id="filterVisitStatus">
+                                <option value="all">همه</option>
+                                <option value="visited">ویزیت شده</option>
+                                <option value="not_visited">ویزیت نشده</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">احتمال خرید</label>
+                            <select class="form-select" id="filterProb">
+                                <option value="all">همه</option>
+                                <option value="high">زیاد</option>
+                                <option value="low">کم</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary w-100" data-bs-dismiss="modal">مشاهده نتایج</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Modal: Daily Sales -->
         <div class="modal fade" id="dailySalesModal" tabindex="-1">
             <div class="modal-dialog">
@@ -400,9 +458,11 @@
                             <input type="text" class="form-control" id="newRegionInput" placeholder="نام منطقه جدید...">
                             <button class="btn btn-success" type="button" id="addRegionBtn">افزودن</button>
                         </div>
-                        <ul class="list-group mb-4" id="regionList">
-                            <!-- Populated by JS -->
-                        </ul>
+                        <div style="max-height: 200px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.375rem;" class="mb-4">
+                            <ul class="list-group list-group-flush" id="regionList">
+                                <!-- Populated by JS -->
+                            </ul>
+                        </div>
 
                         <hr>
 
@@ -411,48 +471,82 @@
                             <input type="text" class="form-control" id="newProductInput" placeholder="نام کالا جدید...">
                             <button class="btn btn-success" type="button" id="addProductBtn">افزودن</button>
                         </div>
-                        <ul class="list-group mb-4" id="productList">
-                            <!-- Populated by JS -->
-                        </ul>
-
-                        <hr>
-
-                        <h6 class="fw-bold mb-3">پشتیبان‌گیری و خروجی</h6>
-                        <div class="d-flex gap-2 mb-2">
-                            <button class="btn btn-outline-success w-100" id="exportReportBtn">
-                                <i class="bi bi-file-text"></i> گزارش اکسل
-                            </button>
-                        </div>
-
-                        <div class="mt-2">
-                             <button class="btn btn-outline-info w-100" id="showDbScriptBtn">
-                                <i class="bi bi-database-gear"></i> دریافت اسکریپت آپدیت دیتابیس
-                            </button>
+                        <div style="max-height: 200px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.375rem;" class="mb-4">
+                            <ul class="list-group list-group-flush" id="productList">
+                                <!-- Populated by JS -->
+                            </ul>
                         </div>
 
                         <hr>
-                        <h6 class="fw-bold mb-2 small text-muted">مدیریت فایل‌های پشتیبان</h6>
 
-                        <!-- JSON Actions -->
-                        <div class="d-flex gap-2 mb-2">
-                            <button class="btn btn-outline-primary w-50" id="backupJsonBtn">
-                                <i class="bi bi-download"></i> دانلود JSON
-                            </button>
-                            <button class="btn btn-outline-warning w-50" onclick="document.getElementById('importJsonInput').click()">
-                                <i class="bi bi-upload"></i> بازگردانی JSON
-                            </button>
-                            <input type="file" id="importJsonInput" accept=".json" class="d-none">
+                        <h6 class="fw-bold mb-3">تنظیمات تلگرام</h6>
+                        <div class="mb-3">
+                            <label class="form-label small">توکن ربات (Bot Token)</label>
+                            <input type="text" class="form-control text-start" id="telegramBotToken" dir="ltr" placeholder="123456789:ABC...">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small">شناسه کاربر (User ID)</label>
+                            <input type="text" class="form-control text-start" id="telegramUserId" dir="ltr" placeholder="12345678">
+                        </div>
+                        <div class="d-grid mb-3">
+                            <button class="btn btn-primary btn-sm" id="saveTelegramSettingsBtn">ذخیره تنظیمات تلگرام</button>
                         </div>
 
-                        <!-- Excel Backup Actions -->
-                        <div class="d-flex gap-2">
-                            <button class="btn btn-outline-success w-50" id="backupExcelBtn">
-                                <i class="bi bi-download"></i> دانلود اکسل
+                        <hr>
+
+                        <h6 class="fw-bold mb-3">مدیریت داده‌ها و پشتیبان‌گیری</h6>
+
+                        <!-- Backup Actions -->
+                        <div class="row g-2 mb-2">
+                            <div class="col-6">
+                                <button class="btn btn-outline-primary w-100" id="backupJsonBtn">
+                                    <i class="bi bi-filetype-json"></i> دانلود JSON
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button class="btn btn-outline-warning w-100" onclick="document.getElementById('importJsonInput').click()">
+                                    <i class="bi bi-upload"></i> بازگردانی JSON
+                                </button>
+                                <input type="file" id="importJsonInput" accept=".json" class="d-none">
+                            </div>
+                        </div>
+
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <button class="btn btn-outline-success w-100" id="backupExcelBtn">
+                                    <i class="bi bi-file-earmark-excel"></i> دانلود اکسل
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button class="btn btn-outline-warning w-100" onclick="document.getElementById('importExcelInput').click()">
+                                    <i class="bi bi-upload"></i> بازگردانی اکسل
+                                </button>
+                                <input type="file" id="importExcelInput" accept=".xlsx, .xls" class="d-none">
+                            </div>
+                        </div>
+
+                        <!-- Telegram Backup -->
+                        <div class="d-grid mb-3">
+                             <button class="btn btn-outline-info" id="sendBackupToTelegramBtn">
+                                <i class="bi bi-telegram"></i> ارسال بک‌آپ اکسل به تلگرام
                             </button>
-                            <button class="btn btn-outline-warning w-50" onclick="document.getElementById('importExcelInput').click()">
-                                <i class="bi bi-upload"></i> بازگردانی اکسل
-                            </button>
-                            <input type="file" id="importExcelInput" accept=".xlsx, .xls" class="d-none">
+                        </div>
+
+                        <hr>
+
+                        <!-- Other Tools -->
+                        <h6 class="fw-bold mb-2 small text-muted">سایر ابزارها</h6>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <button class="btn btn-light w-100 border" id="exportReportBtn">
+                                    <i class="bi bi-table"></i> گزارش ساده
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button class="btn btn-light w-100 border" id="showDbScriptBtn">
+                                    <i class="bi bi-database"></i> اسکریپت DB
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
