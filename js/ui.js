@@ -74,6 +74,17 @@ export const ui = {
 
     async loadInitialData() {
         try {
+            // Optimization: Load from cache first for instant UI
+            try {
+                const cachedRegions = localStorage.getItem('bolt_regions');
+                const cachedProducts = localStorage.getItem('bolt_products');
+                if (cachedRegions && cachedProducts) {
+                     this.data.regions = JSON.parse(cachedRegions);
+                     this.data.products = JSON.parse(cachedProducts);
+                     this.renderRegions();
+                }
+            } catch (e) { console.warn('Cache load failed', e); }
+
             // Load Aux Data
             // We handle visits separately so if the table doesn't exist yet, the app still works.
             const [regions, products] = await Promise.all([
@@ -82,6 +93,12 @@ export const ui = {
             ])
             this.data.regions = regions || []
             this.data.products = products || []
+
+            // Update Cache
+            try {
+                localStorage.setItem('bolt_regions', JSON.stringify(this.data.regions));
+                localStorage.setItem('bolt_products', JSON.stringify(this.data.products));
+            } catch (e) { console.warn('Cache update failed', e); }
 
             try {
                 this.data.visits = await db.getVisits() || []
@@ -432,12 +449,16 @@ export const ui = {
             loadMoreContainer.classList.add('d-none');
         }
 
+        // Optimization: Create fragment and reuse date object
+        const fragment = document.createDocumentFragment();
+        const now = new Date();
+
         filteredStores.forEach(store => {
             // Determine Visited State (7-day window)
             let isVisited = false;
             if (store.last_visit) {
                 const lastVisitDate = new Date(store.last_visit);
-                const now = new Date();
+                // Optimization: reused 'now' instance
                 const diffTime = Math.abs(now - lastVisitDate);
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                 if (diffDays <= 7) {
@@ -542,8 +563,11 @@ export const ui = {
             // Attach specific listeners to buttons inside the card
             // Note: Efficient way is delegation, but for simplicity here we can bind individually or rely on container delegation.
             // Let's use delegation on container to avoid memory leaks on re-render.
-            container.appendChild(card)
+            fragment.appendChild(card)
         })
+
+        // Optimization: Append all at once
+        container.appendChild(fragment)
     },
 
     renderRegions() {
