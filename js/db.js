@@ -8,6 +8,31 @@ export const db = {
         return data
     },
 
+    async getAllStores() {
+        // Fetch all stores (used for Management "Load All")
+        // Warning: This could be heavy if thousands of records.
+        // Supabase limits rows returned (usually 1000).
+        // For simplicity, we just ask for a large range or standard select.
+        const { data, error } = await supabase
+            .from('stores')
+            .select(`*, orders (*)`)
+            .order('created_at', { ascending: false })
+            // Default limit is usually 1000. If more needed, we need loop.
+            // Let's assume < 1000 for this user request context or handle basic case.
+
+        if (error) throw error
+
+        // Sort orders
+        if (data) {
+            data.forEach(store => {
+                if (store.orders) {
+                    store.orders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                }
+            })
+        }
+        return data
+    },
+
     async addRegion(name) {
         const { data, error } = await supabase.from('regions').insert([{ name }]).select()
         if (error) throw error
@@ -105,6 +130,13 @@ export const db = {
         return data[0]
     },
 
+    async deleteStore(id) {
+        // Cascade delete should handle orders and visits if configured in DB.
+        // Assuming DB uses ON DELETE CASCADE.
+        const { error } = await supabase.from('stores').delete().eq('id', id)
+        if (error) throw error
+    },
+
     async toggleVisit(id, visited) {
         const { error } = await supabase.from('stores').update({ visited }).eq('id', id)
         if (error) throw error
@@ -140,6 +172,43 @@ export const db = {
 
     async deleteOrder(orderId) {
         const { error } = await supabase.from('orders').delete().eq('id', orderId)
+        if (error) throw error
+    },
+
+    // --- Visits ---
+    async getVisits() {
+        const { data, error } = await supabase
+            .from('visits')
+            .select(`
+                *,
+                store:stores(name, region)
+            `)
+            .order('visit_date', { ascending: true }) // Sort by date ascending (closest first)
+
+        if (error) throw error
+        return data
+    },
+
+    async addVisit(visitData) {
+        const payload = {
+            store_id: visitData.storeId,
+            visit_date: visitData.visitDate,
+            visit_time: visitData.visitTime,
+            note: visitData.note,
+            status: 'pending'
+        }
+        const { data, error } = await supabase.from('visits').insert([payload]).select()
+        if (error) throw error
+        return data[0]
+    },
+
+    async updateVisitStatus(id, status) {
+        const { error } = await supabase.from('visits').update({ status }).eq('id', id)
+        if (error) throw error
+    },
+
+    async deleteVisit(id) {
+        const { error } = await supabase.from('visits').delete().eq('id', id)
         if (error) throw error
     },
 
@@ -197,6 +266,22 @@ export const db = {
             });
             const { error } = await supabase.from('orders').upsert(ordersToInsert, { onConflict: 'id' });
             if (error) console.error('Error importing orders:', error);
+        }
+
+        // 5. Visits
+        if (data.visits && data.visits.length > 0) {
+            const visitsToInsert = data.visits.map(v => {
+                return {
+                    id: v.id,
+                    store_id: v.store_id || v.storeId,
+                    visit_date: v.visit_date || v.visitDate,
+                    visit_time: v.visit_time || v.visitTime,
+                    note: v.note,
+                    status: v.status || 'pending'
+                };
+            });
+            const { error } = await supabase.from('visits').upsert(visitsToInsert, { onConflict: 'id' });
+            if (error) console.error('Error importing visits:', error);
         }
     }
 }

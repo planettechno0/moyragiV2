@@ -5,7 +5,8 @@ export const backupToJSON = (data) => {
     const exportData = {
         regions: data.regions || [],
         products: data.products || [],
-        stores: data.stores || [] // stores contain nested orders in current UI data structure
+        stores: data.stores || [], // stores contain nested orders
+        visits: data.visits || []
     };
 
     // In db.js getStores() returns stores with orders nested.
@@ -47,7 +48,8 @@ export const parseJSONBackup = (file) => {
                     regions: data.regions || [],
                     products: data.products || [],
                     stores: [],
-                    orders: []
+                    orders: [],
+                    visits: data.visits || []
                 };
 
                 if (data.stores) {

@@ -2,13 +2,15 @@ import { db } from './db.js'
 import { auth } from './auth.js'
 import { exportToExcel, backupToExcel, parseExcelBackup } from './excel.js'
 import { backupToJSON, parseJSONBackup } from './backup.js'
+import { dateUtils } from './date_utils.js'
 
 export const ui = {
     // State
     data: {
         stores: [],
         regions: [],
-        products: []
+        products: [],
+        visits: []
     },
     pagination: {
         page: 0,
@@ -73,13 +75,27 @@ export const ui = {
     async loadInitialData() {
         try {
             // Load Aux Data
+            // We handle visits separately so if the table doesn't exist yet, the app still works.
             const [regions, products] = await Promise.all([
                 db.getRegions(),
                 db.getProducts()
             ])
             this.data.regions = regions || []
             this.data.products = products || []
+
+            try {
+                this.data.visits = await db.getVisits() || []
+            } catch (err) {
+                console.warn('Could not load visits (table might be missing):', err)
+                this.data.visits = []
+                if (err.code === 'PGRST205' || (err.message && err.message.includes('Could not find the table'))) {
+                    this.showToast('توجه: جدول ویزیت‌ها هنوز ایجاد نشده است. به تنظیمات بروید.', 'warning')
+                }
+            }
+
             this.renderRegions()
+            this.renderVisitsList()
+            this.checkVisitNotifications()
 
             // Load Stores (Page 0)
             this.resetPagination()
@@ -170,6 +186,15 @@ export const ui = {
         document.getElementById('backupExcelBtn').addEventListener('click', () => backupToExcel(this.data))
         document.getElementById('importExcelInput').addEventListener('change', (e) => this.handleImport(e, 'excel'))
 
+        // --- SQL Script ---
+        document.getElementById('showDbScriptBtn').addEventListener('click', () => this.showSqlModal())
+        document.getElementById('copySqlBtn').addEventListener('click', () => {
+             const textarea = document.getElementById('sqlContent')
+             textarea.select()
+             navigator.clipboard.writeText(textarea.value)
+             this.showToast('کپی شد', 'success')
+        })
+
         // --- Orders ---
         document.getElementById('addOrderItemBtn').addEventListener('click', () => this.addOrderItem())
         document.getElementById('orderCountDown').addEventListener('click', () => {
@@ -185,8 +210,58 @@ export const ui = {
         // --- Views ---
         document.getElementById('dailySalesBtn').addEventListener('click', () => this.showDailySales())
         document.getElementById('ordersViewBtn').addEventListener('click', () => this.switchView('orders'))
-        document.getElementById('backToDashboardBtn').addEventListener('click', () => this.switchView('dashboard'))
+        document.getElementById('managementViewBtn').addEventListener('click', () => this.switchView('management'))
+
+        document.querySelectorAll('.back-to-dash-btn').forEach(btn => {
+            btn.addEventListener('click', () => this.switchView('dashboard'))
+        })
+
         document.getElementById('orderDateFilter').addEventListener('change', () => this.renderAllOrders())
+
+        // --- Visits ---
+        document.getElementById('saveVisitBtn').addEventListener('click', () => this.handleSaveVisit())
+
+        // --- Management Toolbar ---
+        const refreshManagement = () => this.renderManagementTable()
+        document.getElementById('manageSearch').addEventListener('input', refreshManagement)
+        document.getElementById('manageFilterRegion').addEventListener('change', refreshManagement)
+        document.getElementById('manageSort').addEventListener('change', refreshManagement)
+        document.getElementById('managePageSize').addEventListener('change', refreshManagement)
+        document.getElementById('manageLoadMoreBtn').addEventListener('click', async () => {
+             // Load more from DB
+             await this.loadStoresChunk()
+             // renderManagementTable will be called if loadStoresChunk updates data?
+             // loadStoresChunk calls renderStores(), but not renderManagementTable.
+             // We need to call renderManagementTable explicitly if we are in management view.
+             if (this.currentView === 'management') this.renderManagementTable()
+             this.showToast('اطلاعات بیشتر بارگزاری شد', 'info')
+        })
+        document.getElementById('manageLoadAllBtn').addEventListener('click', async () => {
+             if (confirm('آیا از بارگزاری تمام اطلاعات اطمینان دارید؟ این عملیات ممکن است کمی زمان ببرد.')) {
+                 try {
+                     const allStores = await db.getAllStores()
+                     // We merge or replace?
+                     // If we replace, we lose pagination state context, but that's fine for "Load All".
+                     // Ideally we merge unique IDs.
+                     const existingIds = new Set(this.data.stores.map(s => s.id))
+                     const newStores = allStores.filter(s => !existingIds.has(s.id))
+                     this.data.stores = [...this.data.stores, ...newStores]
+
+                     // Or just replace entirely to ensure sync?
+                     // this.data.stores = allStores
+                     // Merging is safer if user edited something locally (not applicable here really).
+                     // Let's just merge to append missing ones.
+
+                     this.pagination.hasMore = false // We loaded all (presumably)
+                     if (this.currentView === 'management') this.renderManagementTable()
+                     // Also update main view if needed, but maybe costly.
+                     this.showToast('تمام اطلاعات بارگزاری شد.', 'success')
+                 } catch (e) {
+                     console.error(e)
+                     this.showToast('خطا در دریافت اطلاعات', 'error')
+                 }
+             }
+        })
 
         // --- Auth ---
         document.getElementById('logoutBtn').addEventListener('click', async () => {
@@ -198,18 +273,26 @@ export const ui = {
     switchView(viewName) {
         const dashboard = document.getElementById('dashboardView')
         const orders = document.getElementById('ordersView')
+        const management = document.getElementById('managementView')
         const fab = document.getElementById('fabContainer')
+
+        // Hide all
+        dashboard.classList.add('d-none')
+        orders.classList.add('d-none')
+        management.classList.add('d-none')
+        fab.classList.add('d-none')
 
         if (viewName === 'dashboard') {
             dashboard.classList.remove('d-none')
-            orders.classList.add('d-none')
             fab.classList.remove('d-none')
-            this.renderStores() // Re-render to ensure updates
+            this.renderStores()
         } else if (viewName === 'orders') {
-            dashboard.classList.add('d-none')
             orders.classList.remove('d-none')
-            fab.classList.add('d-none')
             this.renderAllOrders()
+        } else if (viewName === 'management') {
+            management.classList.remove('d-none')
+            this.renderManagementTable()
+            this.renderVisitsList()
         }
     },
 
@@ -343,9 +426,14 @@ export const ui = {
                         ${store.phone ? `<p class="card-text small mb-2"><i class="bi bi-telephone"></i> <a href="tel:${this.escapeHtml(store.phone)}" class="text-decoration-none">${this.escapeHtml(store.phone)}</a></p>` : ''}
 
                         <div class="mb-3">${badges}</div>
-                        <button class="btn btn-sm btn-outline-primary w-100" data-action="new-order" data-store-id="${store.id}">
-                            <i class="bi bi-cart-plus"></i> ثبت سفارش
-                        </button>
+                        <div class="d-flex gap-2 mb-2">
+                             <button class="btn btn-sm btn-outline-primary flex-grow-1" data-action="new-order" data-store-id="${store.id}">
+                                <i class="bi bi-cart-plus"></i> سفارش
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" data-action="new-visit" data-store-id="${store.id}" title="ثبت قرار ویزیت">
+                                <i class="bi bi-calendar-plus"></i>
+                            </button>
+                        </div>
                         ${ordersHtml}
                     </div>
                 </div>
@@ -366,7 +454,11 @@ export const ui = {
         list.innerHTML = ''
         // Reset dropdowns
         const currentFilter = filterSelect.value
+        const manageFilterSelect = document.getElementById('manageFilterRegion')
+        const currentManageFilter = manageFilterSelect ? manageFilterSelect.value : 'all'
+
         filterSelect.innerHTML = '<option value="all">همه مناطق</option>'
+        if (manageFilterSelect) manageFilterSelect.innerHTML = '<option value="all">همه</option>'
         modalSelect.innerHTML = ''
 
         this.data.regions.forEach(region => {
@@ -391,9 +483,17 @@ export const ui = {
             opt2.value = region.name
             opt2.textContent = region.name
             modalSelect.appendChild(opt2)
+
+            if (manageFilterSelect) {
+                const opt3 = document.createElement('option')
+                opt3.value = region.name
+                opt3.textContent = region.name
+                manageFilterSelect.appendChild(opt3)
+            }
         })
 
         filterSelect.value = currentFilter
+        if (manageFilterSelect) manageFilterSelect.value = currentManageFilter
 
         // Render Products List here too
         this.renderProducts()
@@ -423,6 +523,123 @@ export const ui = {
             opt.dataset.name = product.name
             select.appendChild(opt)
         })
+    },
+
+    renderManagementTable() {
+        const tbody = document.getElementById('storesTableBody')
+        tbody.innerHTML = ''
+
+        // Get Filter/Search values
+        const search = document.getElementById('manageSearch').value.toLowerCase().trim()
+        const region = document.getElementById('manageFilterRegion').value
+        const sort = document.getElementById('manageSort').value
+        const size = document.getElementById('managePageSize').value
+
+        // Filter and Sort
+        let list = this.data.stores.filter(s => {
+            if (region !== 'all' && s.region !== region) return false
+            if (search) {
+                const match = s.name.toLowerCase().includes(search) ||
+                              (s.phone && s.phone.includes(search)) ||
+                              (s.seller_name && s.seller_name.toLowerCase().includes(search))
+                if (!match) return false
+            }
+            return true
+        })
+
+        if (sort === 'name') {
+            list.sort((a, b) => a.name.localeCompare(b.name, 'fa'))
+        } else if (sort === 'newest') {
+            list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        } else if (sort === 'oldest') {
+            list.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+        }
+
+        // Limit
+        if (size !== 'all') {
+            list = list.slice(0, parseInt(size))
+        }
+
+        // Render
+        list.forEach(store => {
+            const tr = document.createElement('tr')
+            tr.innerHTML = `
+                <td>${this.escapeHtml(store.name)}</td>
+                <td>${this.escapeHtml(store.region)}</td>
+                <td>${this.escapeHtml(store.seller_name || '-')}</td>
+                <td>${this.escapeHtml(store.phone || '-')}</td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-outline-primary me-1" data-action="edit-store" data-store-id="${store.id}">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" data-action="delete-store" data-store-id="${store.id}">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            `
+            tbody.appendChild(tr)
+        })
+
+        // Bind actions in the table container using delegation
+        tbody.onclick = (e) => {
+             const btn = e.target.closest('button')
+             if (!btn) return
+             if (btn.dataset.action === 'edit-store') {
+                 this.openAddStoreModal(btn.dataset.storeId)
+             }
+             // delete-store is handled by global click listener in main.js,
+             // but since we stop propagation here if we don't return, we should be careful.
+             // Actually, letting it bubble up is better.
+        }
+    },
+
+    renderVisitsList() {
+        const tbody = document.getElementById('visitsTableBody')
+        const noMsg = document.getElementById('noVisitsMsg')
+
+        if (this.data.visits.length === 0) {
+            tbody.innerHTML = ''
+            noMsg.classList.remove('d-none')
+            return
+        }
+        noMsg.classList.add('d-none')
+
+        tbody.innerHTML = ''
+        this.data.visits.forEach(visit => {
+            const statusBadge = visit.status === 'done'
+                ? '<span class="badge bg-success">انجام شده</span>'
+                : '<span class="badge bg-warning text-dark">در انتظار</span>';
+
+            const tr = document.createElement('tr')
+            tr.innerHTML = `
+                <td>${this.escapeHtml(visit.visit_date)}</td>
+                <td>${this.escapeHtml(visit.visit_time || '-')}</td>
+                <td>${this.escapeHtml(visit.store?.name || '-')}</td>
+                <td><small class="text-muted">${this.escapeHtml(visit.note || '-')}</small></td>
+                <td>${statusBadge}</td>
+                <td class="text-end">
+                    ${visit.status !== 'done' ? `
+                    <button class="btn btn-sm btn-success me-1" data-action="complete-visit" data-id="${visit.id}" title="انجام شد">
+                        <i class="bi bi-check-lg"></i>
+                    </button>` : ''}
+                    <button class="btn btn-sm btn-outline-danger" data-action="delete-visit" data-id="${visit.id}" title="حذف">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            `
+            tbody.appendChild(tr)
+        })
+    },
+
+    checkVisitNotifications() {
+        const tomorrow = dateUtils.getTomorrowJalaali();
+        const upcoming = this.data.visits.filter(v => v.visit_date === tomorrow && v.status !== 'done');
+
+        if (upcoming.length > 0) {
+            const names = upcoming.map(v => v.store?.name).slice(0, 3).join('، ');
+            const more = upcoming.length > 3 ? ` و ${upcoming.length - 3} مورد دیگر` : '';
+            this.showToast(`یادآوری: فردا ${upcoming.length} قرار ویزیت دارید (${names}${more})`, 'info');
+        }
     },
 
     renderAllOrders() {
@@ -542,9 +759,115 @@ export const ui = {
                 else this.renderStores()
             }
         }
+        else if (action === 'delete-store') {
+             if (confirm('آیا از حذف فروشگاه و تمام سفارشات آن اطمینان دارید؟')) {
+                 await db.deleteStore(btn.dataset.storeId)
+                 await this.refreshData()
+                 this.renderStores()
+                 if (this.currentView === 'management') this.renderManagementTable()
+             }
+        }
+        else if (action === 'new-visit') {
+            this.openVisitModal(btn.dataset.storeId)
+        }
+        else if (action === 'delete-visit') {
+            if (confirm('قرار ویزیت حذف شود؟')) {
+                await db.deleteVisit(btn.dataset.id)
+                await this.refreshData() // reload visits
+            }
+        }
+        else if (action === 'complete-visit') {
+            await db.updateVisitStatus(btn.dataset.id, 'done')
+            await this.refreshData() // reload visits
+        }
     },
 
     // --- Modal Logic ---
+
+    openVisitModal(storeId) {
+        document.getElementById('visitStoreId').value = storeId
+        document.getElementById('visitDate').value = dateUtils.getTodayJalaali() // Default to today or empty?
+        document.getElementById('visitTime').value = ''
+        document.getElementById('visitNote').value = ''
+        new bootstrap.Modal(document.getElementById('visitModal')).show()
+    },
+
+    showSqlModal() {
+        const sql = `-- Enable RLS
+alter default privileges in schema public grant all on tables to postgres, service_role;
+
+-- Visits Table
+create table if not exists visits (
+  id bigint generated by default as identity primary key,
+  store_id bigint references stores(id) on delete cascade,
+  visit_date text not null,
+  visit_time text,
+  note text,
+  status text default 'pending',
+  user_id uuid references auth.users not null default auth.uid(),
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table visits enable row level security;
+
+create policy "Users can view their own visits"
+  on visits for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert their own visits"
+  on visits for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update their own visits"
+  on visits for update
+  using (auth.uid() = user_id);
+
+create policy "Users can delete their own visits"
+  on visits for delete
+  using (auth.uid() = user_id);
+`
+        document.getElementById('sqlContent').value = sql
+        new bootstrap.Modal(document.getElementById('sqlModal')).show()
+    },
+
+    async handleSaveVisit() {
+        // Check if jalaali is loaded
+        if (typeof window.jalaali === 'undefined') {
+             this.showToast('سیستم تاریخ بارگزاری نشده است. لطفاً صفحه را رفرش کنید.', 'error')
+             return
+        }
+
+        const storeId = document.getElementById('visitStoreId').value
+        const date = document.getElementById('visitDate').value.trim()
+        const time = document.getElementById('visitTime').value
+        const note = document.getElementById('visitNote').value
+
+        // Basic validation for Shamsi date format YYYY/MM/DD
+        if (!/^\d{4}\/\d{2}\/\d{2}$/.test(date)) {
+            this.showToast('فرمت تاریخ باید 1402/01/01 باشد', 'error')
+            return
+        }
+
+        try {
+            await db.addVisit({
+                storeId,
+                visitDate: date,
+                visitTime: time,
+                note
+            })
+            this.showToast('قرار ویزیت ثبت شد', 'success')
+            bootstrap.Modal.getInstance(document.getElementById('visitModal')).hide()
+            await this.refreshData() // This will reload visits and re-render list
+        } catch (e) {
+            console.error(e)
+            if ((e.message && e.message.includes('relation "visits" does not exist')) ||
+                (e.code === 'PGRST205' || e.message.includes('Could not find the table'))) {
+                 this.showToast('جدول ویزیت‌ها یافت نشد. لطفاً اسکریپت دیتابیس را از تنظیمات دریافت و اجرا کنید.', 'error')
+            } else {
+                 this.showToast('خطا در ثبت قرار. اتصال اینترنت را بررسی کنید.', 'error')
+            }
+        }
+    },
 
     openAddStoreModal(storeId = null) {
         const form = document.getElementById('addStoreForm')
@@ -769,7 +1092,7 @@ export const ui = {
         }
 
         const orderData = {
-            date: new Date().toLocaleDateString('fa-IR'),
+            date: dateUtils.toJalaali(new Date()), // Use Jalaali library for consistency
             text,
             items: this.currentOrderItems
         }
@@ -788,14 +1111,17 @@ export const ui = {
     },
 
     showDailySales() {
-         const today = new Date().toLocaleDateString('fa-IR')
+         // Check both standard string format and locale string for backward compatibility
+         const todayJalaali = dateUtils.toJalaali(new Date())
+         const todayLocale = new Date().toLocaleDateString('fa-IR')
+
          let count = 0
          let products = {}
 
          this.data.stores.forEach(s => {
              if (s.orders) {
                  s.orders.forEach(o => {
-                     if (o.date === today) {
+                     if (o.date === todayJalaali || o.date === todayLocale) {
                          count++
                          if (o.items) {
                              o.items.forEach(i => {
